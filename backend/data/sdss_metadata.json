@@ -1,0 +1,37 @@
+{
+  "dataset_name": "Sloan Digital Sky Survey DR18 Photometric & Spectroscopic Survey",
+  "data_release": "SDSS DR18 (Data Release 18, 2023)",
+  "source": "SDSS SkyServer CasJobs Catalog Archive (SpecObjAll joined with PhotoObjAll)",
+  "sql_query": "SELECT TOP 1500 p.objid, p.ra, p.dec, p.u, p.g, p.r, p.i, p.z, s.class, s.z as redshift FROM PhotoObjAll p JOIN SpecObjAll s ON p.objid = s.bestobjid WHERE s.class IN ('STAR', 'GALAXY', 'QSO') AND s.zWarning = 0 AND p.clean = 1",
+  "retrieval_date": "2026-11-09",
+  "total_records": 1500,
+  "classes": {
+    "STAR": 500,
+    "GALAXY": 500,
+    "QUASAR": 500
+  },
+  "features": [
+    "u",
+    "g",
+    "r",
+    "i",
+    "z",
+    "redshift",
+    "u_g",
+    "g_r",
+    "r_i",
+    "i_z"
+  ],
+  "columns": [
+    "objid",
+    "ra",
+    "dec",
+    "u",
+    "g",
+    "r",
+    "i",
+    "z",
+    "redshift",
+    "class"
+  ]
+}

@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Orbit Overload | Scientific Research Mode</title>
+<style>
+:root{color-scheme:dark;--bg:#02030a;--p:rgba(14,22,50,.55);--b:rgba(90,140,255,.22);--c:#38d6ff;--v:#8b5cf6;--t:#e8eeff;--m:#8a98c4}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;overflow-x:hidden;min-height:100vh}
+nav{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:14px;padding:12px 22px;background:rgba(2,3,10,.7);backdrop-filter:blur(14px);border-bottom:1px solid var(--b)}
+nav b{letter-spacing:.2em;font-size:13px;white-space:nowrap}nav .l{display:flex;gap:4px;overflow-x:auto;flex:1}
+nav a{color:var(--m);text-decoration:none;padding:7px 12px;border-radius:99px;font-size:13px;white-space:nowrap}nav a.on,nav a:hover{color:#fff;background:rgba(56,214,255,.14);box-shadow:inset 0 0 0 1px var(--b)}
+main{max-width:1180px;margin:auto;padding:26px 20px 80px}
+h1{font-size:clamp(28px,5vw,52px);line-height:1;margin:0 0 10px;background:linear-gradient(120deg,#fff,var(--c) 60%,var(--v));-webkit-background-clip:text;background-clip:text;color:transparent}
+h2{margin:0 0 8px;font-size:22px}h3{margin:0 0 6px;font-size:16px}
+.sub{color:var(--m);margin:0 0 16px;font-size:14px}
+.btn{display:inline-block;border:0;cursor:pointer;color:#fff;font:inherit;padding:10px 18px;border-radius:99px;background:linear-gradient(120deg,#1d6bff,var(--v));margin:4px 6px 4px 0;text-decoration:none;transition:transform .15s,opacity .2s;white-space:nowrap}
+.btn:hover{transform:translateY(-1px)}.btn:disabled{opacity:.4;cursor:default;transform:none}
+.btn.g{background:rgba(2,3,10,.5);box-shadow:inset 0 0 0 1px var(--b)}
+.btn.sm{padding:6px 13px;font-size:12px}.btn.red{background:rgba(239,68,68,.2);box-shadow:inset 0 0 0 1px rgba(239,68,68,.5)}
+.card{background:var(--p);border:1px solid var(--b);border-radius:16px;padding:16px;backdrop-filter:blur(10px)}
+.card+.card{margin-top:14px}
+.tag{font-size:11px;letter-spacing:.12em;color:var(--c);text-transform:uppercase;margin-bottom:6px}
+.live,.demo,.cached,.preprint,.peer{font-size:10px;padding:1px 8px;border-radius:99px;margin-left:6px;letter-spacing:.06em;vertical-align:middle}
+.live{color:#34d399;border:1px solid #34d39988}
+.demo{color:#ffcc66;border:1px solid #ffcc6688}
+.cached{color:#a78bfa;border:1px solid #a78bfa88}
+.preprint{color:#fb923c;border:1px solid #fb923c88}
+.peer{color:#34d399;border:1px solid #34d39988}
+input,select,textarea{width:100%;background:rgba(0,0,0,.4);border:1px solid var(--b);border-radius:12px;padding:10px 16px;color:#fff;font:inherit;margin:4px 0;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--c);box-shadow:0 0 0 2px rgba(56,214,255,.12)}
+.row{display:flex;gap:14px;flex-wrap:wrap}.row>*{flex:1 1 300px}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.search-bar{display:flex;gap:8px;margin-bottom:16px}.search-bar input{margin:0;border-radius:99px}
+.tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--b);padding-bottom:0}
+.tab{padding:9px 16px;cursor:pointer;border-radius:8px 8px 0 0;color:var(--m);font-size:13px;border:1px solid transparent;border-bottom:none;background:transparent}
+.tab.on{color:#fff;background:rgba(56,214,255,.12);border-color:var(--b)}
+.paper-card{border:1px solid var(--b);border-radius:12px;padding:14px;margin:10px 0;background:rgba(14,22,50,.4);transition:border-color .2s}
+.paper-card:hover{border-color:var(--c)}
+.paper-title{font-weight:600;margin:0 0 4px;font-size:14px}
+.paper-authors{color:var(--m);font-size:12px;margin:0 0 6px}
+.paper-abstract{font-size:13px;line-height:1.5;color:#c8d4f0;margin:6px 0}
+.paper-meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:11px;color:var(--m);margin-top:8px}
+.chat{height:380px;overflow:auto;display:flex;flex-direction:column;gap:8px;padding:8px;scroll-behavior:smooth}
+.msg{padding:10px 14px;border-radius:12px;max-width:92%;background:rgba(56,214,255,.08);white-space:pre-wrap;line-height:1.5;font-size:14px}
+.msg.u{align-self:flex-end;background:rgba(139,92,246,.22)}
+.msg.err{background:rgba(239,68,68,.12)}
+.msg small{display:block;margin-top:6px;font-size:11px;color:var(--m)}
+.msg a{color:var(--c);text-decoration:none}.msg a:hover{text-decoration:underline}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--b);border-top-color:var(--c);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:40px;color:var(--m)}
+.level-select{display:flex;gap:6px;margin-bottom:12px}
+.level-btn{padding:5px 14px;border-radius:99px;border:1px solid var(--b);background:transparent;color:var(--m);cursor:pointer;font:12px inherit}
+.level-btn.on{background:rgba(56,214,255,.15);color:var(--c);border-color:var(--c)}
+.comparison-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:12px}
+.comparison-table th{color:var(--c);font-weight:600;padding:8px 10px;border-bottom:1px solid var(--b);text-align:left}
+.comparison-table td{padding:8px 10px;border-bottom:1px solid rgba(90,140,255,.1);vertical-align:top}
+.notebook-entry{border:1px solid var(--b);border-radius:10px;padding:12px;margin:8px 0;background:rgba(8,13,34,.4)}
+.disclaimer{font-size:11px;color:var(--m);border:1px solid rgba(90,140,255,.2);border-radius:8px;padding:8px 12px;margin-top:12px;line-height:1.4}
+details{margin:8px 0}summary{cursor:pointer;color:var(--c);font-size:13px}
+.badge{display:inline-block;font-size:10px;padding:1px 7px;border-radius:99px;margin:1px}
+.badge.arxiv{background:rgba(251,146,60,.15);border:1px solid rgba(251,146,60,.4);color:#fb923c}
+.badge.oa{background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.4);color:#34d399}
+.report-box{background:rgba(0,0,0,.3);border-radius:12px;padding:16px;margin:12px 0;border:1px solid var(--b);white-space:pre-wrap;font-size:13px;line-height:1.6;max-height:500px;overflow:auto}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(56,214,255,.18);border:1px solid var(--c);border-radius:99px;padding:8px 20px;font-size:13px;color:#fff;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none}
+#toast.show{opacity:1}
+@media(max-width:760px){.row{flex-direction:column}.search-bar{flex-direction:column}}
+</style>
+</head>
+<body>
+<nav>
+  <b><a href="/" style="color:inherit;text-decoration:none">◎ ORBIT OVERLOAD</a></b>
+  <div class="l">
+    <a href="/">Home</a>
+    <a href="/solar">3D Universe</a>
+    <a href="/orbit-ai">AI Astronomer</a>
+    <a href="/nasa-live">NASA Live</a>
+    <a href="/ml-lab">ML Lab</a>
+    <a href="/quiz">Quiz</a>
+    <a href="/research" class="on">Research</a>
+  </div>
+  <a href="/3d" class="btn g" style="font-size:12px;padding:6px 14px">✦ 3D Experience</a>
+</nav>
+<main>
+  <div class="tag">Module E — Scientific Research Mode</div>
+  <h1>Research Mode</h1>
+  <p class="sub">Search astronomy papers via arXiv &amp; OpenAlex · AI-grounded Q&amp;A with citations · Structured report export · Research notebook</p>
+
+  <div class="tabs">
+    <div class="tab on" onclick="switchTab('papers')">📄 Paper Search</div>
+    <div class="tab" onclick="switchTab('agent')">🤖 AI Astronomer</div>
+    <div class="tab" onclick="switchTab('compare')">⚖️ Compare Papers</div>
+    <div class="tab" onclick="switchTab('report')">📋 Generate Report</div>
+    <div class="tab" onclick="switchTab('notebook')">📓 Notebook</div>
+  </div>
+
+  <!-- PAPER SEARCH TAB -->
+  <div id="tab-papers">
+    <div class="card">
+      <div class="tag">Search Astronomy Papers <span class="live">arXiv + OpenAlex</span></div>
+      <div class="search-bar">
+        <input id="paper-q" type="text" placeholder="e.g. exoplanet transit detection, galaxy formation, gravitational waves…" onkeydown="if(event.key==='Enter')searchPapers()">
+        <select id="paper-src" style="width:auto;min-width:120px;margin:0">
+          <option value="arxiv">arXiv</option>
+          <option value="openalex">OpenAlex</option>
+          <option value="all">Both</option>
+        </select>
+        <button class="btn" onclick="searchPapers()">Search</button>
+      </div>
+      <div id="paper-results"><div class="empty">Enter a search query to find astronomy papers</div></div>
+      <div class="disclaimer">📌 Papers from arXiv are preprints and may not be peer-reviewed. Papers from OpenAlex include published works. Always verify publication status before citing. This tool respects API terms of service and does not access paywalled content.</div>
+    </div>
+  </div>
+
+  <!-- AI ASTRONOMER TAB -->
+  <div id="tab-agent" style="display:none">
+    <div class="row">
+      <div class="card" style="flex:1 1 60%">
+        <div class="tag">AI Astronomer Chat <span class="live">RAG + Gemini</span></div>
+        <div class="level-select">
+          <span style="color:var(--m);font-size:12px;align-self:center">Level:</span>
+          <button class="level-btn" onclick="setLevel('beginner',this)">Beginner</button>
+          <button class="level-btn on" onclick="setLevel('intermediate',this)">Intermediate</button>
+          <button class="level-btn" onclick="setLevel('advanced',this)">Advanced</button>
+        </div>
+        <div class="chat" id="agent-chat"></div>
+        <div id="agent-sg" style="display:flex;gap:6px;flex-wrap:wrap;padding:4px 0"></div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <input id="agent-q" placeholder="Ask about astronomy, exoplanets, stellar evolution, cosmology…" onkeydown="if(event.key==='Enter')agentAsk()">
+          <button class="btn" onclick="agentAsk()">Ask</button>
+        </div>
+        <button class="btn g sm" style="margin-top:8px" onclick="clearChat()">Clear chat</button>
+      </div>
+      <div class="card" style="flex:0 1 300px">
+        <div class="tag">Context Object</div>
+        <select id="ctx-object" style="margin-bottom:12px">
+          <option value="">None selected</option>
+          <option>Mercury</option><option>Venus</option><option>Earth</option><option>Mars</option>
+          <option>Jupiter</option><option>Saturn</option><option>Uranus</option><option>Neptune</option>
+          <option>Pluto</option><option>The Sun</option><option>Milky Way Galaxy</option>
+          <option>Andromeda Galaxy</option><option>ISS (International Space Station)</option>
+        </select>
+        <div class="tag">Quick Questions</div>
+        <div id="quick-qs"></div>
+        <div class="disclaimer" style="margin-top:14px">AI answers are grounded in the Orbit Overload astronomy knowledge base and Gemini AI. Sources are shown with each answer. Always verify scientific claims.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPARE PAPERS TAB -->
+  <div id="tab-compare" style="display:none">
+    <div class="card">
+      <div class="tag">Compare Astronomy Papers</div>
+      <p class="sub">Search for papers on a topic; AI will compare research questions, methods, findings, and limitations.</p>
+      <div class="search-bar">
+        <input id="compare-q" type="text" placeholder="e.g. machine learning galaxy classification, dark matter detection…" onkeydown="if(event.key==='Enter')comparePapers()">
+        <button class="btn" onclick="comparePapers()">Compare</button>
+      </div>
+      <div id="compare-results"><div class="empty">Enter a topic to find and compare papers</div></div>
+      <div class="disclaimer">📌 AI-generated comparison. Each claim is linked to a retrieved paper. Verify conclusions against original sources.</div>
+    </div>
+  </div>
+
+  <!-- GENERATE REPORT TAB -->
+  <div id="tab-report" style="display:none">
+    <div class="row">
+      <div class="card" style="flex:1 1 60%">
+        <div class="tag">Generate Research Report</div>
+        <label style="color:var(--m);font-size:13px">Research Topic</label>
+        <input id="report-topic" placeholder="e.g. Habitability of rocky exoplanets in M-dwarf systems…" style="margin-bottom:10px">
+        <label style="color:var(--m);font-size:13px">Additional Context (optional)</label>
+        <textarea id="report-ctx" rows="3" placeholder="Background context, specific aspects to cover, datasets of interest…" style="border-radius:12px;resize:vertical;margin-bottom:10px"></textarea>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <input type="checkbox" id="include-papers" checked style="width:auto;margin:0">
+          <label for="include-papers" style="margin:0;font-size:13px;color:var(--m)">Include arXiv paper search</label>
+        </div>
+        <button class="btn" onclick="generateReport()">Generate Report</button>
+        <div id="report-output"></div>
+      </div>
+      <div class="card" style="flex:0 1 300px">
+        <div class="tag">Report Structure</div>
+        <ul style="color:var(--m);font-size:13px;padding-left:18px;line-height:1.9">
+          <li>Title &amp; Abstract</li>
+          <li>Background</li>
+          <li>Evidence &amp; Methods</li>
+          <li>Key Findings</li>
+          <li>Limitations</li>
+          <li>References</li>
+          <li>Generated date</li>
+        </ul>
+        <div class="disclaimer">Reports are AI-generated for educational purposes. All references must be verified before academic use. Generated date and source links are included.</div>
+        <button class="btn g sm" style="margin-top:12px" id="copy-report-btn" onclick="copyReport()" disabled>Copy Report</button>
+        <button class="btn g sm" onclick="saveToNotebook()" id="save-nb-btn" disabled>Save to Notebook</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- NOTEBOOK TAB -->
+  <div id="tab-notebook" style="display:none">
+    <div class="card">
+      <div class="tag">Research Notebook <span class="demo">LOCAL STORAGE</span></div>
+      <p class="sub">Your saved questions, notes, and reports. Stored locally in this browser.</p>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <input id="nb-title" placeholder="Note title…" style="flex:1">
+        <textarea id="nb-body" placeholder="Notes…" rows="2" style="flex:2;resize:none"></textarea>
+        <button class="btn sm" onclick="addNote()">Save Note</button>
+      </div>
+      <div id="notebook-entries"><div class="empty">No saved notes yet. Generate a report or add a note above.</div></div>
+      <button class="btn red sm" style="margin-top:14px" onclick="clearNotebook()">Clear All Notes</button>
+    </div>
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<script>
+const BASE = '';
+let currentLevel = 'intermediate';
+let agentChatHistory = [];
+let lastReport = '';
+
+// ── Tab switching ─────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('[id^="tab-"]').forEach(el => el.style.display = 'none');
+  document.getElementById('tab-' + name).style.display = 'block';
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+  event.target.classList.add('on');
+  if (name === 'notebook') loadNotebook();
+}
+
+// ── Toast ─────────────────────────────────────────────────────
+function toast(msg, ms = 2500) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), ms);
+}
+
+// ── Paper Search ──────────────────────────────────────────────
+async function searchPapers() {
+  const q = document.getElementById('paper-q').value.trim();
+  const src = document.getElementById('paper-src').value;
+  if (!q) return;
+  const el = document.getElementById('paper-results');
+  el.innerHTML = '<div class="empty"><span class="spinner"></span> Searching papers…</div>';
+
+  try {
+    const r = await fetch(`${BASE}/api/agent/papers/search?q=${encodeURIComponent(q)}&source=${src}&max_results=10`);
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || 'Search failed');
+    renderPapers(el, data);
+  } catch (e) {
+    el.innerHTML = `<div class="empty" style="color:#f87171">Error: ${e.message}</div>`;
+  }
+}
+
+function renderPapers(container, data) {
+  if (!data.papers || data.papers.length === 0) {
+    container.innerHTML = '<div class="empty">No papers found. Try different keywords.</div>';
+    return;
+  }
+  let html = `<div style="color:var(--m);font-size:13px;margin-bottom:10px">Found ${data.count} paper(s) for "<strong style="color:var(--t)">${escHtml(data.query)}</strong>"</div>`;
+  for (const p of data.papers) {
+    const badge = p.type === 'peer-reviewed'
+      ? '<span class="peer">PEER-REVIEWED</span>'
+      : '<span class="preprint">PREPRINT</span>';
+    const srcBadge = p.source === 'arXiv'
+      ? '<span class="badge arxiv">arXiv</span>'
+      : '<span class="badge oa">OpenAlex</span>';
+    html += `
+    <div class="paper-card">
+      <div class="paper-title">${escHtml(p.title)} ${badge} ${srcBadge}</div>
+      <div class="paper-authors">👤 ${(p.authors || []).slice(0,4).map(escHtml).join(', ')}${(p.authors||[]).length > 4 ? ' et al.' : ''}</div>
+      ${p.venue ? `<div style="font-size:11px;color:var(--m);margin-bottom:4px">📰 ${escHtml(p.venue)}</div>` : ''}
+      <div class="paper-abstract">${escHtml(p.abstract || '')}</div>
+      <div class="paper-meta">
+        ${p.published ? `<span>📅 ${p.published.slice(0,10)}</span>` : ''}
+        ${p.arxiv_id ? `<a href="${p.url}" target="_blank" rel="noopener" style="color:var(--c)">arXiv:${p.arxiv_id}</a>` : ''}
+        ${p.doi_url ? `<a href="${p.doi_url}" target="_blank" rel="noopener" style="color:var(--c)">DOI</a>` : ''}
+        ${p.url && !p.arxiv_id ? `<a href="${p.url}" target="_blank" rel="noopener" style="color:var(--c)">View Paper</a>` : ''}
+        <button class="btn g sm" onclick="askAboutPaper('${escHtml(p.title).replace(/'/g,"\\'")}')">Ask AI about this</button>
+        <button class="btn g sm" onclick="saveToNotebookEntry('${escHtml(p.title).replace(/'/g,"\\'")}','${escHtml(p.authors?.slice(0,2).join(', ')||'').replace(/'/g,"\\'")} (${p.published?.slice(0,4)||''}). ${p.url||''}')">Save to Notebook</button>
+      </div>
+    </div>`;
+  }
+  if (data.errors && data.errors.length > 0) {
+    html += `<div class="disclaimer">⚠️ Some sources had errors: ${data.errors.map(e => `${e.source}: ${e.error}`).join('; ')}</div>`;
+  }
+  html += `<div class="disclaimer">${escHtml(data.disclaimer || '')}</div>`;
+  container.innerHTML = html;
+}
+
+function askAboutPaper(title) {
+  switchTab('agent');
+  document.querySelectorAll('.tab')[1].classList.add('on');
+  document.querySelectorAll('.tab')[0].classList.remove('on');
+  document.getElementById('agent-q').value = `Explain and summarize the research paper: "${title}"`;
+  agentAsk();
+}
+
+// ── AI Astronomer Chat ────────────────────────────────────────
+function setLevel(level, btn) {
+  currentLevel = level;
+  document.querySelectorAll('.level-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+}
+
+function clearChat() {
+  agentChatHistory = [];
+  document.getElementById('agent-chat').innerHTML = '';
+  document.getElementById('agent-sg').innerHTML = '';
+}
+
+async function agentAsk() {
+  const q = document.getElementById('agent-q').value.trim();
+  if (!q) return;
+  document.getElementById('agent-q').value = '';
+
+  const ctx = document.getElementById('ctx-object').value;
+  const chat = document.getElementById('agent-chat');
+
+  appendMsg(chat, q, 'u');
+  const loader = appendMsg(chat, '<span class="spinner"></span> Thinking…', '');
+  chat.scrollTop = chat.scrollHeight;
+
+  try {
+    const r = await fetch(`${BASE}/api/agent/chat`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        query: q,
+        level: currentLevel,
+        context_object: ctx || null,
+      })
+    });
+    const data = await r.json();
+    loader.remove();
+
+    if (!r.ok) throw new Error(data.detail || 'AI error');
+
+    let answer = data.answer || '';
+    let footer = `<small>Source: ${escHtml(data.source || 'rag-gemini')} · Level: ${data.level}`;
+    if (data.corpus_sources && data.corpus_sources.length > 0) {
+      footer += ` · <strong>Sources:</strong> ` + data.corpus_sources.map(s =>
+        s.url ? `<a href="${s.url}" target="_blank">${escHtml(s.title||s.id)}</a>` : escHtml(s.title||s.id)
+      ).join(', ');
+    }
+    footer += '</small>';
+    appendMsg(chat, answer + footer, '');
+
+    // Show follow-up suggestions
+    if (data.suggested_followups && data.suggested_followups.length > 0) {
+      const sg = document.getElementById('agent-sg');
+      sg.innerHTML = data.suggested_followups.map(f =>
+        `<button class="btn g sm" onclick="document.getElementById('agent-q').value='${f.replace(/'/g,"\\'")}'">${escHtml(f)}</button>`
+      ).join('');
+    }
+    chat.scrollTop = chat.scrollHeight;
+  } catch (e) {
+    loader && loader.remove && loader.remove();
+    appendMsg(chat, `Error: ${e.message}`, 'err');
+  }
+}
+
+function appendMsg(container, html, cls) {
+  const div = document.createElement('div');
+  div.className = 'msg ' + cls;
+  div.innerHTML = html;
+  container.appendChild(div);
+  return div;
+}
+
+// Quick questions
+const QUICK_QS = [
+  'What is an exoplanet transit?',
+  'How do black holes form?',
+  'What is dark matter?',
+  'How far is the nearest star?',
+  'What causes auroras?',
+  'What is a neutron star?',
+  'How do we detect gravitational waves?',
+  'What is the cosmic microwave background?',
+];
+document.getElementById('quick-qs').innerHTML = QUICK_QS.map(q =>
+  `<button class="btn g sm" style="margin:3px 4px 3px 0;display:block;width:100%;text-align:left" onclick="document.getElementById('agent-q').value='${q.replace(/'/g,"\\'")}';agentAsk()">${q}</button>`
+).join('');
+
+// ── Compare Papers ────────────────────────────────────────────
+async function comparePapers() {
+  const q = document.getElementById('compare-q').value.trim();
+  if (!q) return;
+  const el = document.getElementById('compare-results');
+  el.innerHTML = '<div class="empty"><span class="spinner"></span> Searching and comparing papers…</div>';
+
+  try {
+    const r = await fetch(`${BASE}/api/agent/compare-papers`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({query: q, source: 'arxiv', max_results: 6})
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || 'Compare failed');
+
+    let html = '';
+    if (data.papers && data.papers.length > 0) {
+      html += `<div class="tag" style="margin-top:10px">Papers Found (${data.paper_count})</div>`;
+      for (const p of data.papers) {
+        html += `
+        <div class="paper-card">
+          <div class="paper-title">${escHtml(p.title)}</div>
+          <div class="paper-authors">👤 ${(p.authors||[]).slice(0,3).map(escHtml).join(', ')} · ${p.published?.slice(0,4)||''}</div>
+          <div class="paper-abstract">${escHtml(p.abstract||'')}</div>
+          ${p.url ? `<a href="${p.url}" target="_blank" style="color:var(--c);font-size:12px">View Paper →</a>` : ''}
+        </div>`;
+      }
+    }
+    if (data.comparison) {
+      html += `<div class="tag" style="margin-top:16px">AI Comparison</div>
+      <div class="report-box">${escHtml(data.comparison)}</div>
+      <div class="disclaimer">${escHtml(data.disclaimer||'')}</div>`;
+    }
+    if (!data.papers || data.papers.length === 0) {
+      html = '<div class="empty">No papers found for this topic. Try different keywords.</div>';
+    }
+    el.innerHTML = html;
+  } catch (e) {
+    el.innerHTML = `<div class="empty" style="color:#f87171">Error: ${e.message}</div>`;
+  }
+}
+
+// ── Generate Report ───────────────────────────────────────────
+async function generateReport() {
+  const topic = document.getElementById('report-topic').value.trim();
+  if (!topic) { toast('Enter a research topic first'); return; }
+  const ctx = document.getElementById('report-ctx').value.trim();
+  const incPapers = document.getElementById('include-papers').checked;
+
+  const el = document.getElementById('report-output');
+  el.innerHTML = '<div class="empty" style="margin-top:16px"><span class="spinner"></span> Generating report (this may take 15–30 seconds)…</div>';
+  document.getElementById('copy-report-btn').disabled = true;
+  document.getElementById('save-nb-btn').disabled = true;
+
+  try {
+    const r = await fetch(`${BASE}/api/agent/report`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({topic, context_body: ctx || null, include_papers: incPapers})
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || 'Report generation failed');
+
+    lastReport = data.report || data.content || JSON.stringify(data, null, 2);
+
+    let html = `<div class="tag" style="margin-top:16px">Generated Report</div>
+    <div class="report-box">${escHtml(lastReport)}</div>`;
+
+    if (data.papers && data.papers.length > 0) {
+      html += `<div class="tag" style="margin-top:14px">Related Papers (${data.papers.length})</div>`;
+      for (const p of data.papers.slice(0, 5)) {
+        html += `<div class="paper-card">
+          <div class="paper-title">${escHtml(p.title)}</div>
+          <div class="paper-authors">👤 ${(p.authors||[]).slice(0,3).map(escHtml).join(', ')} · ${p.published?.slice(0,4)||''}</div>
+          ${p.url ? `<a href="${p.url}" target="_blank" style="color:var(--c);font-size:12px">View →</a>` : ''}
+        </div>`;
+      }
+    }
+
+    html += `<div class="disclaimer">${escHtml(data.disclaimer || '')}<br>Generated: ${new Date().toLocaleString()}</div>`;
+    el.innerHTML = html;
+    document.getElementById('copy-report-btn').disabled = false;
+    document.getElementById('save-nb-btn').disabled = false;
+  } catch (e) {
+    el.innerHTML = `<div class="empty" style="color:#f87171;margin-top:16px">Error: ${e.message}</div>`;
+  }
+}
+
+function copyReport() {
+  if (!lastReport) return;
+  navigator.clipboard.writeText(lastReport).then(() => toast('Report copied to clipboard!'));
+}
+
+function saveToNotebook() {
+  if (!lastReport) return;
+  const topic = document.getElementById('report-topic').value.trim();
+  saveToNotebookEntry('Report: ' + topic, lastReport.slice(0, 500) + '…');
+}
+
+// ── Notebook ──────────────────────────────────────────────────
+function getNotebook() {
+  try { return JSON.parse(localStorage.getItem('oo-notebook') || '[]'); } catch { return []; }
+}
+function saveNotebook(data) {
+  try { localStorage.setItem('oo-notebook', JSON.stringify(data)); } catch {}
+}
+
+function addNote() {
+  const title = document.getElementById('nb-title').value.trim();
+  const body = document.getElementById('nb-body').value.trim();
+  if (!title) { toast('Enter a title'); return; }
+  const nb = getNotebook();
+  nb.unshift({ title, body, date: new Date().toISOString() });
+  saveNotebook(nb);
+  document.getElementById('nb-title').value = '';
+  document.getElementById('nb-body').value = '';
+  loadNotebook();
+  toast('Note saved!');
+}
+
+function saveToNotebookEntry(title, body) {
+  const nb = getNotebook();
+  nb.unshift({ title, body, date: new Date().toISOString() });
+  saveNotebook(nb);
+  toast('Saved to notebook!');
+}
+
+function loadNotebook() {
+  const nb = getNotebook();
+  const el = document.getElementById('notebook-entries');
+  if (nb.length === 0) {
+    el.innerHTML = '<div class="empty">No saved notes yet.</div>';
+    return;
+  }
+  el.innerHTML = nb.map((n, i) => `
+    <div class="notebook-entry">
+      <div style="display:flex;justify-content:space-between;align-items:start">
+        <strong style="font-size:14px">${escHtml(n.title)}</strong>
+        <button class="btn red sm" onclick="deleteNote(${i})">Delete</button>
+      </div>
+      ${n.body ? `<div style="color:var(--m);font-size:13px;margin-top:6px;white-space:pre-wrap">${escHtml(n.body)}</div>` : ''}
+      <div style="color:var(--m);font-size:11px;margin-top:8px">📅 ${new Date(n.date).toLocaleString()}</div>
+    </div>`).join('');
+}
+
+function deleteNote(i) {
+  const nb = getNotebook();
+  nb.splice(i, 1);
+  saveNotebook(nb);
+  loadNotebook();
+}
+
+function clearNotebook() {
+  if (!confirm('Clear all notebook entries?')) return;
+  localStorage.removeItem('oo-notebook');
+  loadNotebook();
+  toast('Notebook cleared');
+}
+
+// ── Utils ─────────────────────────────────────────────────────
+function escHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// Initial welcome message
+(function(){
+  const chat = document.getElementById('agent-chat');
+  appendMsg(chat, '👋 Welcome to <strong>AI Astronomer</strong>! I can answer questions about astronomy, explain discoveries, and help you understand space science. Ask me anything — from basic concepts to advanced astrophysics.\n\nSources are grounded in the Orbit Overload knowledge base and supplemented by Gemini AI.', '');
+})();
+</script>
+</body>
+</html>

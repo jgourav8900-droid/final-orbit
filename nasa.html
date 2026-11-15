@@ -1,0 +1,537 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>NASA Live | Orbit Overload</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{color-scheme:dark;--bg:#02030a;--c:#38d6ff;--v:#8b5cf6;--s:#ffb454;--t:#eaf0ff;--m:#8f9cc8;--ln:rgba(130,170,255,.16);--hd:"Syne","Arial Black",system-ui,sans-serif;--bd:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--t);font:16px/1.55 var(--bd);overflow-x:hidden}
+#gl{position:fixed;inset:0;width:100%;height:100%;z-index:0;cursor:grab}#gl:active{cursor:grabbing}
+.vig{position:fixed;inset:0;z-index:1;pointer-events:none;background:radial-gradient(120% 90% at 70% 45%,transparent 35%,rgba(2,3,10,.85) 100%),linear-gradient(90deg,rgba(2,3,10,.75),transparent 55%)}
+#sun{position:fixed;left:0;top:0;width:0;height:0;z-index:1;pointer-events:none;mix-blend-mode:screen;transition:opacity .2s}
+#sun i{position:absolute;border-radius:50%;transform:translate(-50%,-50%)}
+#sun .a{width:520px;height:520px;background:radial-gradient(circle,rgba(255,214,150,.55),rgba(255,150,60,.16) 35%,transparent 68%)}
+#sun .b{width:1100px;height:3px;border-radius:3px;background:linear-gradient(90deg,transparent,rgba(255,210,150,.85),transparent);filter:blur(1.5px)}
+#sun .c{width:90px;height:90px;background:radial-gradient(circle,#fff,rgba(255,235,200,.7) 30%,transparent 70%)}
+nav{position:fixed;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;gap:8px;padding:14px max(20px,env(safe-area-inset-left));padding-top:max(14px,env(safe-area-inset-top));background:linear-gradient(rgba(2,3,10,.85),transparent)}
+nav b{font:800 14px var(--hd);letter-spacing:.14em;margin-right:auto}nav .l{display:flex;gap:4px;overflow-x:auto;flex:1;align-items:center}
+nav a{color:var(--m);text-decoration:none;padding:7px 12px;border-radius:99px;font-size:13px;font-weight:500;white-space:nowrap}nav a:hover,nav a.on{color:#fff;background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1px var(--ln)}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--s);outline-offset:3px}
+main{position:relative;z-index:2}
+.hero{min-height:92svh;display:flex;flex-direction:column;justify-content:center;padding:110px max(24px,6vw) 70px}
+h1{font:800 clamp(56px,11vw,168px)/.86 var(--hd);letter-spacing:-.045em;margin:0 0 22px;background:linear-gradient(100deg,#fff 20%,#ffd9a0 55%,var(--s));-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 0 80px rgba(255,180,84,.25)}
+.lede{max-width:480px;color:#b9c4ea;margin:0 0 26px;font-size:17px}
+.chip{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:99px;font-size:13px;background:rgba(8,12,30,.6);border:1px solid var(--ln);backdrop-filter:blur(8px)}
+.chip i{width:8px;height:8px;border-radius:50%;background:#ffcc66;box-shadow:0 0 10px #ffcc66}
+.chip.ok i{background:#34d399;box-shadow:0 0 10px #34d399;animation:p 1.8s infinite}
+.chip.bad i{background:#f87171;box-shadow:0 0 10px #f87171}
+@keyframes p{50%{opacity:.35}}
+.ctl{position:absolute;left:max(24px,6vw);bottom:34px;display:flex;align-items:center;gap:14px;padding:10px 18px;border-radius:99px;background:rgba(8,12,30,.6);border:1px solid var(--ln);backdrop-filter:blur(12px);font-size:13px;color:var(--m)}
+input[type=range]{accent-color:var(--s);width:min(220px,40vw)}
+.ctl button{background:none;border:1px solid var(--ln);color:var(--t);border-radius:99px;padding:5px 12px;font:inherit;cursor:pointer}
+.ctl button:hover{border-color:var(--s)}
+section{padding:50px max(24px,6vw)}
+h2{font:800 clamp(28px,4.2vw,50px)/1 var(--hd);letter-spacing:-.03em;margin:0 0 8px}
+.sub{color:var(--m);max-width:620px;margin:0 0 26px;font-size:15px}
+.grid{display:grid;gap:18px;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr)}
+.grid3{display:grid;gap:18px;grid-template-columns:repeat(3,1fr)}
+.card{position:relative;overflow:hidden;padding:22px;border-radius:22px;background:rgba(9,14,34,.65);border:1px solid var(--ln);backdrop-filter:blur(16px);box-shadow:0 30px 80px rgba(0,0,0,.4)}
+.card h3{font:700 20px/1.2 var(--hd);margin:8px 0 10px}
+.card img{width:100%;max-height:360px;object-fit:cover;border-radius:14px;display:block;margin-bottom:12px}
+.tag{font-size:12px;color:var(--s);font-weight:600;letter-spacing:.05em;display:flex;align-items:center;justify-content:space-between}
+.badge{padding:3px 8px;border-radius:99px;font-size:11px;font-weight:600}
+.badge.live{background:rgba(52,211,153,.15);color:#34d399;border:1px solid rgba(52,211,153,.4)}
+.badge.cached{background:rgba(255,180,84,.15);color:#ffb454;border:1px solid rgba(255,180,84,.4)}
+.badge.unavail{background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.4)}
+.mut{color:var(--m);font-size:14px;line-height:1.55}
+.neo{padding:12px 0;border-top:1px solid var(--ln)}.neo:first-of-type{border-top:0}.neo b{font-weight:600}
+.hz{color:#f87171;font-size:12px;margin-left:8px;font-weight:700;border:1px solid rgba(248,113,113,.4);padding:2px 6px;border-radius:99px}
+.rule{position:relative;height:6px;border-radius:6px;margin:10px 0 4px;background:linear-gradient(90deg,rgba(255,180,84,.5),rgba(56,214,255,.25))}
+.rule u{position:absolute;top:-4px;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 0 14px 3px var(--c);transform:translateX(-50%)}
+.rule em{position:absolute;top:-8px;width:2px;height:22px;background:#fff6;font-size:0}
+.scale{display:flex;justify-content:space-between;font-size:11px;color:var(--m)}
+.log{display:flex;gap:18px;overflow-x:auto;scroll-snap-type:x mandatory;padding:6px 2px 24px;margin:0 -2px}
+.log .card{flex:0 0 min(320px,80vw);scroll-snap-align:start;min-height:220px}
+.yr{font:800 52px/1 var(--hd);letter-spacing:-.04em;background:linear-gradient(var(--t),var(--s));-webkit-background-clip:text;background-clip:text;color:transparent}
+/* Interactive Date Bar & Controls */
+.ctrl-row{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.ctrl-row input,.ctrl-row select{padding:6px 12px;border-radius:99px;background:rgba(0,0,0,.4);border:1px solid var(--ln);color:#fff;font:inherit;font-size:13px}
+.btn{font:inherit;font-weight:500;color:var(--t);cursor:pointer;padding:6px 14px;border-radius:99px;background:rgba(255,255,255,.05);border:1px solid var(--ln);font-size:13px;transition:all .2s}
+.btn:hover{border-color:var(--s)}
+.history-scroll{display:flex;gap:12px;overflow-x:auto;padding-bottom:10px;margin-top:12px}
+.hist-item{flex:0 0 160px;cursor:pointer;border-radius:12px;overflow:hidden;border:1px solid var(--ln);background:rgba(0,0,0,.3)}
+.hist-item img{width:100%;height:100px;object-fit:cover;margin:0}
+.hist-item span{display:block;padding:6px;font-size:11px;color:var(--m);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+footer{padding:40px max(24px,6vw) 70px;color:var(--m);font-size:13px;line-height:1.6}
+.rv{opacity:0;transform:translateY(24px);transition:opacity .9s,transform .9s}.rv.in{opacity:1;transform:none}
+@media(max-width:860px){.grid,.grid3{grid-template-columns:1fr}.vig{background:linear-gradient(rgba(2,3,10,.2),rgba(2,3,10,.8))}.hero{justify-content:flex-end;padding-bottom:110px}#sun .b{width:600px}}
+@media(prefers-reduced-motion:reduce){.rv{opacity:1;transform:none;transition:none}.chip.ok i{animation:none}html{scroll-behavior:auto}}
+</style></head><body>
+<canvas id="gl" aria-label="Interactive 3D Earth lit by the Sun"></canvas><div class="vig"></div><div id="sun"><i class="a"></i><i class="b"></i><i class="c"></i></div>
+<nav><b><a href="index.html" style="color:inherit;text-decoration:none">◎ ORBIT OVERLOAD</a></b><div class="l"><a href="index.html">Home</a><a href="mission-control.html">Mission Control</a><a href="universe.html">3D Universe</a><a href="orbit-ai.html">Orbit AI</a><a href="quiz.html">Quiz</a><a class="on" href="nasa.html">NASA Live</a><a href="ml.html">ML Lab</a></div><a href="3d-experience.html" class="btn" id="btn-3d-exp" style="color:#fff;text-decoration:none;background:linear-gradient(135deg,rgba(56,214,255,.2),rgba(139,92,246,.25));border:1px solid rgba(56,214,255,.5);padding:6px 14px;border-radius:99px;font-size:12px;font-weight:600;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;box-shadow:0 0 12px rgba(56,214,255,.2)">✦ 3D Experience</a></nav>
+<main>
+<div class="hero">
+  <p class="chip" id="st"><i></i><span>Connecting to NASA Gateway…</span></p>
+  <h1>NASA<br>Live</h1>
+  <p class="lede">Comprehensive space observations and telemetry streamed through the Orbit Overload backend proxy. All credentials remain secure on the server.</p>
+  <div><a class="chip" href="#feeds" style="color:#fff;text-decoration:none">Explore Live Observatories ↓</a></div>
+  <div class="ctl"><label for="ang">Sun angle</label><input id="ang" type="range" min="0" max="360" value="200"><button id="auto" aria-pressed="true">Auto sweep: on</button></div>
+</div>
+
+<section id="feeds">
+  <div class="grid">
+    <!-- MODULE 1: APOD with Date Picker & History -->
+    <div class="card rv">
+      <div class="tag"><span>Astronomy Picture of the Day</span><span id="apod-badge" class="badge live">LIVE</span></div>
+      <div class="ctrl-row" style="margin-top:10px">
+        <label for="apod-date" style="font-size:12px;color:var(--m)">Date:</label>
+        <input type="date" id="apod-date">
+        <button class="btn" onclick="fetchCustomApod()">Load Date</button>
+        <button class="btn" onclick="fetchRecentApodHistory()">🎲 Random History</button>
+      </div>
+      <div id="apod-content">
+        <div class="tag" style="margin-top:20px">Loading Picture of the Day…</div>
+      </div>
+      <div style="margin-top:16px">
+        <small style="color:var(--m);display:block;margin-bottom:6px">Recent APOD Archives:</small>
+        <div class="history-scroll" id="apod-history"></div>
+      </div>
+    </div>
+
+    <!-- MODULE 2: Near-Earth Objects (NeoWs) -->
+    <div class="card rv">
+      <div class="tag"><span>Near-Earth Objects · Next 7 Days</span><span id="neo-badge" class="badge live">LIVE · NASA NeoWs</span></div>
+      <p class="mut" style="margin:8px 0 12px">Radar-tracked asteroid close approaches. The bright white mark indicates the Moon's distance (1 LD = 384,400 km).</p>
+      <div id="neo-list"><div class="tag">Loading near-Earth tracking feed…</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- MODULE 3 & 4: Mars Rover & DSCOVR EPIC -->
+<section>
+  <div class="grid">
+    <!-- DSCOVR EPIC -->
+    <div class="card rv">
+      <div class="tag"><span>DSCOVR EPIC · Deep Space Camera</span><span id="epic-badge" class="badge live">LIVE · L1 Orbit</span></div>
+      <h3>Full-Disc Earth Imagery</h3>
+      <p class="mut">Captured by the Earth Polychromatic Imaging Camera aboard NOAA's DSCOVR satellite positioned at Sun-Earth Lagrange Point L1 (~1,500,000 km away).</p>
+      <div id="epic-view"><div class="tag">Loading EPIC imagery…</div></div>
+    </div>
+
+    <!-- Mars Rover Exploration -->
+    <div class="card rv">
+      <div class="tag"><span>Mars Rover Exploration</span><span id="mars-badge" class="badge">CHECKING NASA</span></div>
+      <h3>Mars Surface Photography</h3>
+      <div class="ctrl-row">
+        <label style="font-size:12px;color:var(--m)">Rover:</label>
+        <select id="mars-rover"><option value="curiosity">Curiosity</option><option value="perseverance">Perseverance</option></select>
+        <label style="font-size:12px;color:var(--m)">Sol:</label>
+        <input type="number" id="mars-sol" value="1000" min="0" max="4500" style="width:80px">
+        <button class="btn" onclick="fetchMarsPhotos()">Query</button>
+      </div>
+      <div id="mars-view"><div class="tag">Querying NASA Mars photos…</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- MODULE 5: DONKI Space Weather -->
+<section>
+  <div class="card rv">
+    <div class="tag"><span>Space Weather · DONKI</span><span id="donki-badge" class="badge">CHECKING DONKI</span></div>
+    <h3>Solar Flare Observations (FLR)</h3>
+    <p class="mut">Coronal mass ejections and high-energy solar flare telemetry tracked by NASA's Space Weather Database of Notifications, Knowledge, Information.</p>
+    <div id="donki-view"><div class="tag">Connecting to Space Weather Stream…</div></div>
+  </div>
+</section>
+
+<!-- MODULE 6: Historical Mission Log (Static Reference) -->
+<section>
+  <div class="tag" style="margin-bottom:8px"><span>Historical Reference · Static Milestones</span><span class="badge" style="background:rgba(255,255,255,.08);color:var(--m)">Curated Archives</span></div>
+  <h2 class="rv">Mission Log</h2>
+  <p class="sub rv">Six foundational milestones in space exploration history. Static educational records, completely separate from live API feeds.</p>
+  <div class="log rv" id="log"></div>
+</section>
+
+<footer>
+  <p><b>Data Integrity & Provenance:</b> All feeds are proxied securely through the Orbit Overload FastAPI backend with in-memory caching to respect NASA rate limits. No private credentials are exposed to the browser. Earth rendering is a procedural WebGL Three.js shader.</p>
+</footer>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])),RM=matchMedia('(prefers-reduced-motion:reduce)').matches;
+
+/* =========================================================
+   CINEMATIC 3D EARTH EXPERIENCE (PRESERVED)
+   ========================================================= */
+let R,S,C,earth,moon,sat,sunSp,dl;
+const cv=$('#gl');
+try {
+  R=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true});
+  R.setPixelRatio(Math.min(devicePixelRatio,2));
+  S=new THREE.Scene();
+  C=new THREE.PerspectiveCamera(40,1,.1,300);
+  C.position.set(0,0,5.2);
+  const G=new THREE.Group();S.add(G);
+
+  const U={uSun:{value:new THREE.Vector3(1,0,0)},uT:{value:0}};
+  const VS='varying vec3 vN,vP;void main(){vN=normalize(normalMatrix*normal);vP=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}';
+  const NZ='float h(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}float n(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(mix(h(i),h(i+vec3(1,0,0)),f.x),mix(h(i+vec3(0,1,0)),h(i+vec3(1,1,0)),f.x),f.y),mix(mix(h(i+vec3(0,0,1)),h(i+vec3(1,0,1)),f.x),mix(h(i+vec3(0,1,1)),h(i+vec3(1,1,1)),f.x),f.y),f.z);}float fbm(vec3 p){float s=0.,a=.5;for(int i=0;i<5;i++){s+=a*n(p);p*=2.03;a*=.5;}return s;}';
+  const FS='uniform vec3 uSun;uniform float uT;varying vec3 vN,vP;'+NZ+`void main(){
+  vec3 N=normalize(vN),p=normalize(vP);float e=fbm(p*2.2+3.),land=smoothstep(.5,.53,e),lat=abs(p.y);
+  vec3 oc=mix(vec3(.01,.05,.2),vec3(.03,.22,.5),fbm(p*6.));vec3 gr=mix(vec3(.12,.3,.1),vec3(.5,.4,.26),smoothstep(.55,.72,e));gr=mix(gr,vec3(.92),smoothstep(.8,.93,lat));
+  vec3 col=mix(oc,gr,land);float cl=smoothstep(.5,.82,fbm(p*3.4+vec3(uT*.012,0.,0.)+9.));
+  float d=dot(N,uSun),day=smoothstep(-.1,.3,d),lt=max(d,0.);
+  vec3 lit=col*(lt*1.2+.015);vec3 H=normalize(uSun+vec3(0.,0.,1.));lit+=vec3(1.,.88,.65)*pow(max(dot(N,H),0.),70.)*(1.-land)*.9*day;
+  lit=mix(lit,vec3(lt*1.15+.02),cl*.8);
+  float city=land*step(.64,n(p*46.))*smoothstep(.5,.72,fbm(p*5.+1.))*(1.-smoothstep(.75,.9,lat));
+  lit+=vec3(1.,.72,.38)*city*(1.-day)*(1.-cl*.85)*1.5;
+  float rim=pow(1.-max(dot(N,vec3(0.,0.,1.)),0.),3.5)*day*.55;lit+=vec3(.2,.6,1.)*rim;
+  gl_FragColor=vec4(lit,1.);}`;
+
+  earth=new THREE.Mesh(new THREE.SphereGeometry(1.3,64,48),new THREE.ShaderMaterial({vertexShader:VS,fragmentShader:FS,uniforms:U}));
+  G.add(earth);
+
+  // Atmosphere glow rim
+  const atMat=new THREE.ShaderMaterial({
+    vertexShader:'varying vec3 vN;void main(){vN=normalize(normalMatrix*normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+    fragmentShader:'varying vec3 vN;void main(){float i=pow(max(1.-dot(vN,vec3(0.,0.,1.)),0.),3.);gl_FragColor=vec4(.2,.6,1.,i*.45);}',
+    transparent:true,side:THREE.BackSide,blending:THREE.AdditiveBlending
+  });
+  G.add(new THREE.Mesh(new THREE.SphereGeometry(1.4,48,36),atMat));
+
+  // Starfield
+  const stG=new THREE.BufferGeometry(),stP=[];
+  for(let i=0;i<1400;i++){const v=new THREE.Vector3((Math.random()-.5)*200,(Math.random()-.5)*200,(Math.random()-.5)*200);if(v.length()>20)stP.push(v.x,v.y,v.z)}
+  stG.setAttribute('position',new THREE.Float32BufferAttribute(stP,3));
+  S.add(new THREE.Points(stG,new THREE.PointsMaterial({color:0xd4e2ff,size:1,transparent:true,opacity:.8})));
+
+  // Moon
+  moon=new THREE.Mesh(new THREE.SphereGeometry(.22,24,18),new THREE.MeshStandardMaterial({color:0xd0d5e0,roughness:.9}));
+  S.add(moon);
+
+  // Satellite orbit ring & marker
+  const rgG=new THREE.BufferGeometry(),rgP=[];
+  for(let i=0;i<=90;i++){const th=i/90*6.283;rgP.push(Math.cos(th)*1.62,0,Math.sin(th)*1.62)}
+  rgG.setAttribute('position',new THREE.Float32BufferAttribute(rgP,3));
+  G.add(new THREE.Line(rgG,new THREE.LineBasicMaterial({color:0x38d6ff,transparent:true,opacity:.3})));
+
+  sat=new THREE.Mesh(new THREE.BoxGeometry(.035,.035,.035),new THREE.MeshBasicMaterial({color:0x38d6ff}));
+  G.add(sat);
+
+  dl=new THREE.DirectionalLight(0xfffaea,1.4);S.add(dl);
+  S.add(new THREE.AmbientLight(0x0a1024,.4));
+
+  const snC=document.createElement('canvas');snC.width=snC.height=128;const sx=snC.getContext('2d'),g=sx.createRadialGradient(64,64,0,64,64,64);
+  g.addColorStop(0,'#ffffff');g.addColorStop(.2,'#ffe8aa');g.addColorStop(.6,'rgba(255,180,84,.25)');g.addColorStop(1,'transparent');
+  sx.fillStyle=g;sx.fillRect(0,0,128,128);
+  sunSp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(snC),blending:THREE.AdditiveBlending,transparent:true}));
+  sunSp.scale.set(38,38,1);S.add(sunSp);
+
+  let ang=200,auto=true,drag=false,px0=0,py0=0,mx=0,my=0;
+  const sw=new THREE.Vector3(),pv=new THREE.Vector3(),pc=new THREE.Vector3(),sunEl=$('#sun');
+
+  function resize(){
+    const W=innerWidth,H=innerHeight;
+    R.setSize(W,H,false);C.aspect=W/H;C.updateProjectionMatrix();
+    const lft=W>860;
+    G.position.set(lft?Math.min(W*.0013,1.45):0,lft?0:-.3,0);
+    const sc0=Math.min(W/900,1);G.scale.setScalar(Math.max(.85,Math.min(1.15,sc0)));
+  }
+  window.addEventListener('resize',resize);resize();
+
+  window.addEventListener('pointerdown',e=>{if(e.target===cv){drag=true;px0=e.clientX;py0=e.clientY}});
+  window.addEventListener('pointermove',e=>{
+    mx=(e.clientX/innerWidth-.5)*2;my=(e.clientY/innerHeight-.5)*2;
+    if(drag){const dx=e.clientX-px0,dy=e.clientY-py0;px0=e.clientX;py0=e.clientY;earth.rotation.y+=dx*.006;earth.rotation.x+=dy*.006}
+  });
+  window.addEventListener('pointerup',()=>drag=false);
+
+  $('#ang').oninput=e=>{ang=+e.target.value;auto=false;$('#auto').setAttribute('aria-pressed','false');$('#auto').textContent='Auto sweep: off'};
+  $('#auto').onclick=()=>{auto=!auto;$('#auto').setAttribute('aria-pressed',String(auto));$('#auto').textContent=auto?'Auto sweep: on':'Auto sweep: off'};
+
+  const T0=performance.now();
+  function loop(now){
+    requestAnimationFrame(loop);
+    const t=(now-T0)/1000;U.uT.value=t;
+    if(auto){ang=(ang+.06)%360;$('#ang').value=ang|0}
+    if(!drag)earth.rotation.y+=RM?0:.0012;
+    const a=ang*Math.PI/180;sw.set(Math.cos(a),.22,Math.sin(a)).normalize();
+    C.position.x+=((mx*.5)-C.position.x)*.04;C.position.y+=((-my*.3)-C.position.y)*.04;C.lookAt(G.position.x*.3,G.position.y*.3,0);C.updateMatrixWorld();
+    U.uSun.value.copy(sw).transformDirection(C.matrixWorldInverse);dl.position.copy(sw).multiplyScalar(50);
+    sunSp.position.copy(sw).multiplyScalar(60);sunSp.material.opacity=1;
+    const m=t*.12;moon.position.set(Math.cos(m)*3.1,Math.sin(m)*.5,Math.sin(m)*3.1).add(G.position.clone().multiplyScalar(0));moon.rotation.y=m;
+    const q=t*.6;sat.position.set(Math.cos(q)*1.62,0,Math.sin(q)*1.62);
+    pv.copy(sw).multiplyScalar(60).project(C);pc.copy(G.position).project(C);
+    const W=innerWidth,H=innerHeight,sx=(pv.x*.5+.5)*W,sy=(-pv.y*.5+.5)*H,cx=(pc.x*.5+.5)*W,cy=(-pc.y*.5+.5)*H,rp=1.3*G.scale.x*H/3.785,dd=Math.hypot(sx-cx,sy-cy);
+    let o=sw.z<0?Math.min(1,Math.max(0,(dd-rp*.92)/(rp*.3))):1;if(pv.z>1)o=0;
+    sunEl.style.opacity=o;sunEl.style.transform=`translate(${sx}px,${sy}px)`;
+    R.render(S,C);
+  }
+  requestAnimationFrame(loop);
+} catch(err) {
+  console.warn('WebGL initialization failed, falling back to 2D backdrop:', err);
+  cv.style.display='none';
+}
+
+/* =========================================================
+   BACKEND NASA DATA INTEGRATION (FASTAPI PROXIED)
+   ========================================================= */
+let feedsOk=0,feedsTotal=0;
+function updateHeroChip(){
+  const s=$('#st');
+  if(feedsOk>=2){
+    s.className='chip ok';
+    s.querySelector('span').textContent='Live telemetry active via FastAPI Gateway';
+  } else if(feedsOk===1){
+    s.className='chip';
+    s.querySelector('span').textContent='Partly connected (some feeds cached)';
+  } else {
+    s.className='chip bad';
+    s.querySelector('span').textContent='NASA upstream service degraded';
+  }
+}
+
+// 1. APOD
+async function loadApod(date){
+  const el=$('#apod-content');
+  el.innerHTML='<div class="tag">Contacting NASA APOD Gateway…</div>';
+  let url='/api/nasa/apod';
+  if(date) url += `?date=${date}`;
+  
+  try {
+    const res=await fetch(url);
+    const d=await res.json();
+    if(d.status==='unavailable'||!d.title){
+      $('#apod-badge').className='badge unavail';
+      $('#apod-badge').textContent='UNAVAILABLE';
+      el.innerHTML=`<h3>Service Temporarily Unavailable</h3><p class="mut">${esc(d.explanation||'NASA APOD feed currently unreachable.')}</p><button class="btn" onclick="loadApod()">Retry Today's APOD</button>`;
+      return;
+    }
+    feedsOk++;updateHeroChip();
+    const isLive = d._source === 'live';
+    $('#apod-badge').className = isLive ? 'badge live' : 'badge cached';
+    $('#apod-badge').textContent = isLive ? 'LIVE · NASA APOD' : (d._source==='stale_cache'?'STALE CACHED':'CACHED');
+
+    let mediaHtml = '';
+    if(d.media_type==='image'){
+      mediaHtml = `<img src="${esc(d.url)}" alt="${esc(d.title)}" loading="lazy">`;
+    } else {
+      mediaHtml = `<p><a class="btn" style="color:#fff;text-decoration:none" href="${esc(d.url)}" target="_blank" rel="noopener">▶ Open APOD Video Stream</a></p>`;
+    }
+
+    el.innerHTML=`
+      <h3>${esc(d.title)}</h3>
+      ${mediaHtml}
+      <p class="mut">${esc(d.explanation)}</p>
+      <small style="color:var(--m)"><b>Date:</b> ${esc(d.date)} ${d.copyright?` · © ${esc(d.copyright.trim())}`:''} ${d._cached_at?` · Cached at ${esc(d._cached_at.slice(11,19))} UTC`:''}</small>
+    `;
+    if(!$('#apod-date').value) $('#apod-date').value = d.date;
+  } catch(e) {
+    $('#apod-badge').className='badge unavail';
+    $('#apod-badge').textContent='OFFLINE';
+    el.innerHTML=`<h3>Connection Error</h3><p class="mut">${esc(e.message)}</p><button class="btn" onclick="loadApod()">Retry</button>`;
+  }
+}
+
+function fetchCustomApod(){
+  const d = $('#apod-date').value;
+  if(d) loadApod(d);
+}
+
+async function fetchRecentApodHistory(){
+  const el=$('#apod-history');
+  el.innerHTML='<div class="tag">Loading history…</div>';
+  try {
+    const res=await fetch('/api/nasa/apod/history?count=5');
+    const d=await res.json();
+    if(!d.items||!d.items.length){
+      el.innerHTML='<span style="font-size:12px;color:var(--m)">History temporarily unavailable.</span>';
+      return;
+    }
+    el.innerHTML=d.items.map(it=>`
+      <div class="hist-item" onclick="loadApod('${it.date}')">
+        ${it.media_type==='image'?`<img src="${esc(it.url)}" alt="">`:'<div style="height:100px;background:#111;display:flex;align-items:center;justify-content:center;color:var(--m)">Video</div>'}
+        <span>${esc(it.date)}: ${esc(it.title)}</span>
+      </div>
+    `).join('');
+  } catch(e) {
+    el.innerHTML='<span style="font-size:12px;color:var(--m)">History query failed.</span>';
+  }
+}
+
+// 2. Near-Earth Objects (NeoWs)
+async function loadNeo(){
+  const el=$('#neo-list');
+  try {
+    const res=await fetch('/api/nasa/neo');
+    const d=await res.json();
+    if(d.status==='unavailable'||!d.near_earth_objects){
+      $('#neo-badge').className='badge unavail';
+      $('#neo-badge').textContent='UNAVAILABLE';
+      el.innerHTML=`<h3>NeoWs Feed Unavailable</h3><p class="mut">${esc(d.message||'NASA NeoWs stream currently unreachable.')}</p><button class="btn" onclick="loadNeo()">Retry</button>`;
+      return;
+    }
+    feedsOk++;updateHeroChip();
+    const isLive = d._source === 'live';
+    $('#neo-badge').className = isLive ? 'badge live' : 'badge cached';
+    $('#neo-badge').textContent = isLive ? 'LIVE · NASA NeoWs' : 'CACHED';
+
+    const flat = Object.values(d.near_earth_objects).flat().map(o=>{
+      const c = (o.close_approach_data && o.close_approach_data[0]) || {};
+      const ld = c.miss_distance ? +c.miss_distance.lunar : 10;
+      const km = c.miss_distance ? +c.miss_distance.kilometers : 0;
+      const v = c.relative_velocity ? +(c.relative_velocity.kilometers_per_second||+c.relative_velocity.kilometers_per_hour/3600) : 0;
+      const dia = o.estimated_diameter ? (o.estimated_diameter.meters?o.estimated_diameter.meters.estimated_diameter_max:o.estimated_diameter.kilometers.estimated_diameter_max*1000) : 100;
+      return {
+        n: o.name.replace(/[()]/g,''),
+        h: o.is_potentially_hazardous_asteroid,
+        ld: ld,
+        d: dia,
+        v: v,
+        dt: c.close_approach_date_full || c.close_approach_date || 'Upcoming'
+      };
+    }).sort((a,b)=>a.ld-b.ld);
+
+    const pos=ld=>Math.max(0,Math.min(100,(Math.log10(Math.max(0.01,ld))+1)/3*100));
+
+    el.innerHTML=`
+      <div style="font-size:13px;color:var(--m);margin-bottom:10px">
+        <b>${flat.length}</b> total approaches tracked · <b>${flat.filter(o=>o.h).length}</b> flagged potentially hazardous by NASA
+      </div>
+    ` + flat.slice(0,6).map(o=>`
+      <div class="neo">
+        <b>${esc(o.n)}</b>${o.h?'<span class="hz">HAZARDOUS ALERT</span>':''}
+        <div class="rule"><em style="left:${pos(1)}%"></em><u style="left:${pos(o.ld)}%"></u></div>
+        <div class="scale"><span>0.1 LD</span><span>10 LD (Moon: 1 LD)</span><span>100 LD</span></div>
+        <div class="mut">${o.ld.toFixed(1)} lunar distances · ~${Math.round(o.d)} m diameter · ${o.v.toFixed(1)} km/s · ${esc(o.dt)}</div>
+      </div>
+    `).join('');
+  } catch(e) {
+    $('#neo-badge').className='badge unavail';
+    $('#neo-badge').textContent='OFFLINE';
+    el.innerHTML=`<h3>NeoWs Query Error</h3><p class="mut">${esc(e.message)}</p><button class="btn" onclick="loadNeo()">Retry</button>`;
+  }
+}
+
+// 3. DSCOVR EPIC
+async function loadEpic(){
+  const el=$('#epic-view');
+  try {
+    const res=await fetch('/api/nasa/epic');
+    const d=await res.json();
+    if(d.status==='unavailable'||!d.images||!d.images.length){
+      $('#epic-badge').className='badge unavail';
+      $('#epic-badge').textContent='UNAVAILABLE';
+      el.innerHTML=`<p class="mut">${esc(d.message||'EPIC imagery stream temporarily offline.')}</p>`;
+      return;
+    }
+    const isLive = d._source === 'live';
+    $('#epic-badge').className = isLive ? 'badge live' : 'badge cached';
+    $('#epic-badge').textContent = isLive ? 'LIVE · DSCOVR L1' : 'CACHED';
+
+    const latest = d.images[0];
+    el.innerHTML=`
+      <img src="${esc(latest.url)}" alt="DSCOVR EPIC Earth" loading="lazy">
+      <small style="color:var(--m)"><b>Timestamp:</b> ${esc(latest.date)} UTC · <b>Position:</b> Sun-Earth L1 Lagrange Point (~1.5M km)</small>
+      <p class="mut" style="margin-top:6px">${esc(latest.caption||'Natural color full-disc Earth image from NOAA DSCOVR satellite.')}</p>
+    `;
+  } catch(e) {
+    $('#epic-badge').className='badge unavail';
+    $('#epic-badge').textContent='OFFLINE';
+    el.innerHTML=`<p class="mut">Could not contact EPIC proxy: ${esc(e.message)}</p>`;
+  }
+}
+
+// 4. Mars Rover Photos
+async function fetchMarsPhotos(){
+  const el=$('#mars-view');
+  const rover=$('#mars-rover').value;
+  const sol=$('#mars-sol').value||1000;
+  el.innerHTML='<div class="tag">Querying Mars exploration telemetry…</div>';
+
+  try {
+    const res=await fetch(`/api/nasa/mars?rover=${rover}&sol=${sol}`);
+    const d=await res.json();
+    if(d.status==='unavailable'||!d.photos||!d.photos.length){
+      $('#mars-badge').className='badge unavail';
+      $('#mars-badge').textContent='UPSTREAM 404 / MAINTENANCE';
+      el.innerHTML=`
+        <div style="padding:12px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid var(--ln);margin-top:10px">
+          <b style="color:#ffcc66">NASA Mars Photos API Service Disruption</b>
+          <p class="mut" style="margin:6px 0">${esc(d.message||'Upstream Mars Rover API returned HTTP 404. Service migration in progress by NASA.')}</p>
+          <small style="color:var(--m)">No artificial fallback images are fabricated to maintain scientific honesty.</small>
+          <div style="margin-top:10px"><button class="btn" onclick="fetchMarsPhotos()">Retry Mars Query</button></div>
+        </div>
+      `;
+      return;
+    }
+    $('#mars-badge').className='badge live';
+    $('#mars-badge').textContent='LIVE · MARS';
+    el.innerHTML=d.photos.slice(0,3).map(p=>`
+      <div style="margin-top:10px">
+        <img src="${esc(p.img_src)}" alt="Mars" loading="lazy">
+        <small style="color:var(--m)">Rover: ${esc(p.rover.name)} · Sol: ${p.sol} · Camera: ${esc(p.camera.full_name)}</small>
+      </div>
+    `).join('');
+  } catch(e) {
+    $('#mars-badge').className='badge unavail';
+    $('#mars-badge').textContent='OFFLINE';
+    el.innerHTML=`<p class="mut">${esc(e.message)}</p>`;
+  }
+}
+
+// 5. DONKI Space Weather
+async function loadDonki(){
+  const el=$('#donki-view');
+  try {
+    const res=await fetch('/api/nasa/donki/flares');
+    const d=await res.json();
+    if(d.status==='unavailable'||!d.flares||!d.flares.length){
+      $('#donki-badge').className='badge unavail';
+      $('#donki-badge').textContent='UPSTREAM 503';
+      el.innerHTML=`
+        <div style="padding:12px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid var(--ln)">
+          <b style="color:#ffcc66">Space Weather Service Disruption (HTTP 503)</b>
+          <p class="mut" style="margin:6px 0">${esc(d.message||'NASA DONKI server is currently returning HTTP 503 Service Unavailable.')}</p>
+          <small style="color:var(--m)">No fake solar flares are rendered in compliance with scientific integrity guidelines.</small>
+          <div style="margin-top:10px"><button class="btn" onclick="loadDonki()">Retry Space Weather</button></div>
+        </div>
+      `;
+      return;
+    }
+    $('#donki-badge').className='badge live';
+    $('#donki-badge').textContent='LIVE · DONKI FLR';
+    el.innerHTML=d.flares.slice(0,4).map(f=>`
+      <div style="padding:8px 0;border-bottom:1px solid var(--ln)">
+        <b>Flare ${esc(f.flrID)}</b> <span class="badge" style="background:rgba(255,180,84,.2);color:#ffb454">Class ${esc(f.classType)}</span>
+        <div class="mut">Peak: ${esc(f.peakTime||'N/A')} · Source: ${esc(f.sourceLocation||'Unknown region')}</div>
+      </div>
+    `).join('');
+  } catch(e) {
+    $('#donki-badge').className='badge unavail';
+    $('#donki-badge').textContent='OFFLINE';
+    el.innerHTML=`<p class="mut">${esc(e.message)}</p>`;
+  }
+}
+
+// 6. Mission Log (Historical Reference)
+$('#log').innerHTML=[
+  ['1969','Apollo 11','20 July: Neil Armstrong and Buzz Aldrin land in the Sea of Tranquility while Michael Collins orbits above.'],
+  ['1977','Voyager 1','Launched 5 September. In 2012 it became the first human-made object to reach interstellar space at 120+ AU.'],
+  ['1990','Hubble Space Telescope','Deployed 24 April from Space Shuttle Discovery on STS-31; pioneering optical and ultraviolet deep-sky astronomy.'],
+  ['2021','Perseverance','Landed in Mars’s Jezero Crater on 18 February to investigate ancient aqueous deltaic sediments and cache core samples.'],
+  ['2021','James Webb Space Telescope','Launched 25 December; infrared cryogenic observatory stationed at the Sun–Earth L2 Lagrange Point.'],
+  ['2022','Artemis I','Launched 16 November: uncrewed Orion spacecraft performed lunar flybys testing the Space Launch System for human return.']
+].map(m=>`<article class="card"><div class="yr">${m[0]}</div><h3>${m[1]}</h3><p class="mut">${m[2]}</p></article>`).join('');
+
+// Reveal on scroll
+const io=new IntersectionObserver(es=>es.forEach(x=>{if(x.isIntersecting){x.target.classList.add('in');io.unobserve(x.target)}}),{threshold:.12});
+document.querySelectorAll('.rv').forEach(e=>io.observe(e));
+
+// Initialize feeds
+loadApod();
+fetchRecentApodHistory();
+loadNeo();
+loadEpic();
+fetchMarsPhotos();
+loadDonki();
+</script>
+</body></html>

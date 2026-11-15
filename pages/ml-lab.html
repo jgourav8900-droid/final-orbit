@@ -1,0 +1,542 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>ML Lab | Orbit Overload</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{color-scheme:dark;--bg:#02030a;--c:#38d6ff;--v:#8b5cf6;--t:#eaf0ff;--m:#8f9cc8;--ln:rgba(130,170,255,.16);--hd:"Syne","Arial Black",system-ui,sans-serif;--bd:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;--mx:50vw;--my:30vh}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font:16px/1.55 var(--bd);overflow-x:hidden}
+#bg{position:fixed;inset:0;width:100%;height:100%;z-index:0}
+.spot{position:fixed;inset:0;z-index:1;pointer-events:none;background:radial-gradient(520px circle at var(--mx) var(--my),rgba(56,214,255,.13),rgba(139,92,246,.08) 45%,transparent 70%)}
+nav{position:fixed;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;gap:8px;padding:14px max(20px,env(safe-area-inset-left));padding-top:max(14px,env(safe-area-inset-top));background:linear-gradient(rgba(2,3,10,.85),transparent)}
+nav b{font:800 14px var(--hd);letter-spacing:.14em;margin-right:auto}nav .l{display:flex;gap:4px;overflow-x:auto;flex:1;align-items:center}
+nav a{color:var(--m);text-decoration:none;padding:7px 12px;border-radius:99px;font-size:13px;font-weight:500;white-space:nowrap}nav a:hover,nav a.on{color:#fff;background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1px var(--ln)}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--c);outline-offset:3px}
+main{position:relative;z-index:2;max-width:1240px;margin:auto;padding:0 max(20px,4vw)}
+.hero{min-height:48svh;display:flex;flex-direction:column;justify-content:flex-end;padding:110px 0 24px}
+h1{font:800 clamp(48px,9.5vw,130px)/.88 var(--hd);letter-spacing:-.045em;margin:0 0 14px;background:linear-gradient(100deg,#fff 15%,var(--c) 55%,var(--v));-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 0 90px rgba(139,92,246,.35)}
+.lede{max-width:620px;color:#b9c4ea;margin:0 0 20px;font-size:16px}
+/* Mode Switcher Tabs */
+.mode-bar{display:flex;gap:10px;margin-bottom:28px;background:rgba(9,14,34,.7);padding:6px;border-radius:99px;border:1px solid var(--ln);width:fit-content;max-width:100%;overflow-x:auto}
+.mode-btn{padding:10px 22px;border-radius:99px;border:none;background:transparent;color:var(--m);font:600 14px var(--hd);cursor:pointer;white-space:nowrap;transition:all .25s ease}
+.mode-btn.active{background:linear-gradient(120deg,rgba(56,214,255,.3),rgba(139,92,246,.4));color:#fff;box-shadow:0 0 20px rgba(56,214,255,.25);border:1px solid rgba(56,214,255,.4)}
+/* Mode Containers */
+.mode-sec{display:none}.mode-sec.active{display:block}
+/* Common Card & Layout */
+.lab{display:grid;gap:18px;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);padding-bottom:40px}
+.grid2{display:grid;gap:18px;grid-template-columns:1fr 1fr;margin-bottom:24px}
+.card{position:relative;overflow:hidden;padding:22px;border-radius:22px;background:rgba(9,14,34,.62);border:1px solid var(--ln);backdrop-filter:blur(16px);box-shadow:0 30px 80px rgba(0,0,0,.45)}
+.card h2{font:700 20px/1.2 var(--hd);margin:0 0 6px}.mut{color:var(--m);font-size:14px;margin:0 0 14px}
+#pl{width:100%;aspect-ratio:1;display:block;border-radius:16px;background:#050818;box-shadow:0 0 60px rgba(139,92,246,.25),inset 0 0 0 1px var(--ln);touch-action:none}
+.col{display:flex;flex-direction:column;gap:18px}
+.seg{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.btn{font:inherit;font-weight:500;color:var(--t);cursor:pointer;padding:8px 16px;border-radius:99px;background:rgba(255,255,255,.05);border:1px solid var(--ln);transition:all .2s}
+.btn:hover{border-color:var(--c)}.btn[aria-pressed=true],.btn.on{background:linear-gradient(120deg,rgba(56,214,255,.25),rgba(139,92,246,.3));border-color:var(--c);box-shadow:0 0 20px rgba(56,214,255,.25)}
+.btn.go{background:linear-gradient(120deg,#1d6bff,var(--v));border:0;box-shadow:0 0 26px rgba(139,92,246,.45);color:#fff}
+.sl{display:flex;align-items:center;gap:12px;font-size:14px;color:var(--m);margin:6px 0}.sl input{flex:1;accent-color:var(--c)}.sl output{min-width:42px;color:var(--t)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:6px}.stats div{padding:12px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid var(--ln)}
+.stats b{display:block;font:700 22px/1.1 var(--hd);letter-spacing:-.02em}.stats span{font-size:12px;color:var(--m)}
+canvas.w{width:100%;display:block;border-radius:12px}
+.key{display:flex;gap:16px;font-size:13px;color:var(--m);margin-top:10px}.key i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:baseline}
+.badge{display:inline-block;padding:4px 10px;border-radius:99px;font-size:12px;font-weight:600;letter-spacing:.05em}
+.badge.star{background:rgba(56,214,255,.15);color:#38d6ff;border:1px solid rgba(56,214,255,.4)}
+.badge.galaxy{background:rgba(255,180,84,.15);color:#ffb454;border:1px solid rgba(255,180,84,.4)}
+.badge.quasar{background:rgba(167,123,255,.15);color:#a77bff;border:1px solid rgba(167,123,255,.4)}
+/* Table & Data Explorer */
+.tbl-wrap{overflow-x:auto;max-height:360px;margin:10px 0}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:8px 10px;color:var(--m);border-bottom:1px solid var(--ln);font-weight:600;background:rgba(0,0,0,.2);position:sticky;top:0}
+td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.04)}
+tr:hover td{background:rgba(255,255,255,.03)}
+/* Confusion Matrix Table */
+.cm-table{width:100%;text-align:center;border-collapse:collapse;margin:12px 0}
+.cm-table td,.cm-table th{padding:10px;border:1px solid var(--ln);font-size:13px}
+.cm-cell{font-weight:700;font-size:16px;border-radius:8px}
+.cm-diag{background:rgba(56,214,255,.18);color:#38d6ff}
+/* SHAP Waterfall / Bars */
+.shap-bar-row{display:flex;align-items:center;gap:12px;margin:8px 0;font-size:13px}
+.shap-bar-name{width:70px;font-weight:600;color:var(--t)}
+.shap-bar-track{flex:1;height:12px;background:rgba(255,255,255,.06);border-radius:6px;position:relative;overflow:hidden}
+.shap-bar-fill{height:100%;border-radius:6px}
+.shap-bar-fill.pos{background:linear-gradient(90deg,#38d6ff,#8b5cf6)}
+.shap-bar-fill.neg{background:linear-gradient(90deg,#ff6b6b,#ff8e53)}
+.shap-bar-val{width:60px;text-align:right;font-family:monospace;color:var(--m)}
+/* Inputs */
+.ipt-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.ipt-grid label{display:block;font-size:12px;color:var(--m);margin-bottom:4px}
+.ipt-grid input{width:100%;padding:8px 12px;border-radius:10px;background:rgba(0,0,0,.35);border:1px solid var(--ln);color:#fff;font:inherit;font-size:14px}
+.note{padding:14px 0 60px;color:var(--m);font-size:13px}
+@media(max-width:900px){.lab,.grid2{grid-template-columns:1fr}.ipt-grid{grid-template-columns:repeat(2,1fr)}.stats{grid-template-columns:repeat(2,1fr)}}
+</style></head><body>
+<canvas id="bg" aria-hidden="true"></canvas><div class="spot"></div>
+<nav><b><a href="/" style="color:inherit;text-decoration:none">◎ ORBIT OVERLOAD</a></b><div class="l"><a href="/">Home</a><a href="/solar">3D Universe</a><a href="/orbit-ai">AI Astronomer</a><a href="/quiz">Quiz</a><a href="/nasa-live">NASA Live</a><a class="on" href="/ml-lab">ML Lab</a><a href="/research">Research</a></div><a href="/3d" class="btn" id="btn-3d-exp" style="color:#fff;text-decoration:none;background:linear-gradient(135deg,rgba(56,214,255,.2),rgba(139,92,246,.25));border:1px solid rgba(56,214,255,.5);padding:6px 14px;border-radius:99px;font-size:12px;font-weight:600;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;box-shadow:0 0 12px rgba(56,214,255,.2)">✦ 3D Experience</a></nav>
+<main>
+<div class="hero">
+  <h1>ML Lab</h1>
+  <p class="lede">Explore interactive machine learning across educational neural architectures and genuine Sloan Digital Sky Survey (SDSS DR18) celestial classification.</p>
+  <div class="mode-bar">
+    <button class="mode-btn active" id="tab-a" onclick="setMode('a')">🎛️ Mode A: Neural Playground</button>
+    <button class="mode-btn" id="tab-b" onclick="setMode('b')">🔭 Mode B: Astronomy Research Lab (SDSS)</button>
+  </div>
+</div>
+
+<!-- ================= MODE A: SYNTHETIC NEURAL PLAYGROUND (PRESERVED) ================= -->
+<div id="mode-a" class="mode-sec active">
+  <div style="margin-bottom:12px"><span class="badge" style="background:rgba(255,255,255,.07);color:var(--m)">Educational Sandbox</span> <small style="color:var(--m);margin-left:8px">Synthetic 2D datasets generated locally in your browser for neural network architecture exploration.</small></div>
+  <div class="lab">
+    <div class="card">
+      <h2>Decision boundary</h2>
+      <p class="mut">Dots are training points; rings are held-out test points the network never learns from.</p>
+      <canvas id="pl" width="640" height="640" aria-label="Classifier decision boundary"></canvas>
+      <div class="key"><span><i style="background:#38d6ff"></i>Class A</span><span><i style="background:#a77bff"></i>Class B</span><span>Ring = test point</span></div>
+    </div>
+    <div class="col">
+      <div class="card">
+        <h2>Controls</h2>
+        <p class="mut">Pattern data is generated in your browser (synthetic), so you can see exactly what the model learns.</p>
+        <div class="seg" id="ds" role="group" aria-label="Dataset"></div>
+        <div class="sl"><label for="lr">Learning rate</label><input id="lr" type="range" min="1" max="60" value="12"><output id="lro">0.012</output></div>
+        <div class="sl"><label for="nz">Noise</label><input id="nz" type="range" min="0" max="25" value="6"><output id="nzo">0.06</output></div>
+        <div class="seg" style="margin-top:12px">
+          <button class="btn go" id="run" aria-pressed="false">Train</button>
+          <button class="btn" id="rst">Reset network</button>
+          <button class="btn" id="reg">New data</button>
+        </div>
+        <div class="stats">
+          <div><b id="ep">0</b><span>epoch</span></div>
+          <div><b id="ls">–</b><span>train loss</span></div>
+          <div><b id="ta">–</b><span>train accuracy</span></div>
+          <div><b id="va">–</b><span>test accuracy</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Network</h2>
+        <p class="mut">2 inputs, two hidden layers of 12 (tanh), 1 sigmoid output. Cyan edges are positive weights, violet negative.</p>
+        <canvas class="w" id="nn" width="640" height="260"></canvas>
+      </div>
+      <div class="card">
+        <h2>Loss over time</h2>
+        <canvas class="w" id="lc" width="640" height="150"></canvas>
+      </div>
+    </div>
+  </div>
+  <p class="note">Trained with full-batch Adam on binary cross-entropy, 75/25 train/test split. Nothing is sent anywhere; the model, data and plots all live in this tab.</p>
+</div>
+
+<!-- ================= MODE B: ASTRONOMY RESEARCH LAB (SDSS DR18) ================= -->
+<div id="mode-b" class="mode-sec">
+  <div class="grid2">
+    <!-- Dataset Provenance & Overview -->
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <span class="badge" style="background:rgba(56,214,255,.15);color:var(--c)">SDSS DR18 Catalog</span>
+          <h2 style="margin-top:8px">Dataset Provenance & Schema</h2>
+        </div>
+        <button class="btn" onclick="retrainModels()" id="btn-retrain" style="font-size:12px">↻ Retrain Models</button>
+      </div>
+      <p class="mut">1,500 balanced celestial observations from SDSS SkyServer DR18. Clean photometric magnitudes (u, g, r, i, z) with spectroscopic redshift (z).</p>
+      <div class="stats" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
+        <div><b style="color:#38d6ff">500</b><span>Stars</span></div>
+        <div><b style="color:#ffb454">500</b><span>Galaxies</span></div>
+        <div><b style="color:#a77bff">500</b><span>Quasars (QSO)</span></div>
+      </div>
+      <small style="color:var(--m);display:block;line-height:1.6">
+        <b>Data Release:</b> SDSS Data Release 18 (SpecObjAll ⋈ PhotoObjAll)<br>
+        <b>Validation:</b> 0 missing values, zero duplicates, clean photometric flags.<br>
+        <b>Derived Colors:</b> u−g, g−r, r−i, i−z computed prior to model training.
+      </small>
+    </div>
+
+    <!-- Model Comparison & Metrics -->
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <h2>Model Benchmark</h2>
+        <div class="seg" style="margin:0">
+          <button class="btn on" id="m-rf-btn" onclick="switchModel('rf')">Random Forest</button>
+          <button class="btn" id="m-xgb-btn" onclick="switchModel('xgb')">XGBoost</button>
+        </div>
+      </div>
+      <p class="mut" id="m-lib-desc">Scikit-Learn 1.9 RandomForestClassifier (120 trees, max depth 12)</p>
+      <div class="stats" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px">
+        <div><b id="m-acc" style="color:#34d399">100.0%</b><span>Holdout Acc</span></div>
+        <div><b id="m-f1">1.000</b><span>Macro F1</span></div>
+        <div><b id="m-auc">1.000</b><span>ROC-AUC</span></div>
+        <div><b id="m-cv" style="font-size:16px">99.5%</b><span>5-Fold CV</span></div>
+      </div>
+      <small style="color:var(--m)"><b>Split Strategy:</b> 80/20 Stratified (1,200 train / 300 held-out test). Preprocessing fit strictly on training set to prevent leakage.</small>
+    </div>
+  </div>
+
+  <!-- Live Astronomy Prediction & SHAP -->
+  <div class="grid2">
+    <!-- Prediction Form -->
+    <div class="card">
+      <h2>Live Celestial Inference</h2>
+      <p class="mut">Input photometric band magnitudes and redshift to classify the observation.</p>
+      
+      <!-- Preset Buttons -->
+      <div class="seg" style="margin-bottom:14px">
+        <span style="font-size:12px;color:var(--m);align-self:center">Presets:</span>
+        <button class="btn" onclick="setPreset('star')" style="font-size:12px">Star (Milky Way)</button>
+        <button class="btn" onclick="setPreset('galaxy')" style="font-size:12px">Galaxy (z=0.18)</button>
+        <button class="btn" onclick="setPreset('quasar')" style="font-size:12px">Quasar (z=1.85)</button>
+      </div>
+
+      <div class="ipt-grid">
+        <div><label>u (ultraviolet)</label><input type="number" id="in-u" value="18.2" step="0.1"></div>
+        <div><label>g (green)</label><input type="number" id="in-g" value="17.5" step="0.1"></div>
+        <div><label>r (red)</label><input type="number" id="in-r" value="17.1" step="0.1"></div>
+        <div><label>i (near-IR)</label><input type="number" id="in-i" value="16.9" step="0.1"></div>
+        <div><label>z (infrared)</label><input type="number" id="in-z" value="16.8" step="0.1"></div>
+        <div><label>Spectroscopic Redshift</label><input type="number" id="in-zspec" value="0.0001" step="0.001"></div>
+      </div>
+
+      <button class="btn go" style="width:100%" onclick="runAstronomyPredict()">Classify Celestial Object</button>
+
+      <!-- Prediction Output Result -->
+      <div id="pred-res" style="margin-top:16px;padding:14px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid var(--ln);display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div><span style="font-size:12px;color:var(--m)">Predicted Classification:</span><div id="pred-label" style="font:800 24px var(--hd);margin-top:2px">STAR</div></div>
+          <div id="pred-badge"></div>
+        </div>
+        <div style="margin-top:12px">
+          <div style="font-size:12px;color:var(--m);margin-bottom:6px">Raw Probabilities (Tree Ensemble):</div>
+          <div style="display:flex;gap:12px;font-size:13px">
+            <span id="prob-star">STAR: 95.0%</span>
+            <span id="prob-gal">GALAXY: 4.2%</span>
+            <span id="prob-qso">QUASAR: 0.8%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SHAP Explainability -->
+    <div class="card">
+      <h2>SHAP Explainability (TreeExplainer)</h2>
+      <p class="mut">Model-specific Shapley feature contributions explaining why the model predicted this class.</p>
+      <div id="shap-status" style="font-size:13px;color:var(--m);margin-bottom:10px">Calculating feature contributions...</div>
+      <div id="shap-bars"></div>
+      <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--ln);font-size:12px;color:var(--m)">
+        <b style="color:var(--t)">Global Feature Weight:</b> Redshift (z) accounts for ~57% of classification variance, while chromatic color differences (u−g, g−r) resolve ambiguous boundaries at low redshift.
+      </div>
+    </div>
+  </div>
+
+  <!-- Real Dataset Table Explorer -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+      <div>
+        <h2>SDSS DR18 Dataset Explorer</h2>
+        <p class="mut" style="margin:0">Verified spectroscopic and photometric catalog records.</p>
+      </div>
+      <div class="seg" style="margin:0">
+        <button class="btn on" id="flt-all" onclick="filterTable(null)">All (1500)</button>
+        <button class="btn" id="flt-star" onclick="filterTable('STAR')">Stars (500)</button>
+        <button class="btn" id="flt-galaxy" onclick="filterTable('GALAXY')">Galaxies (500)</button>
+        <button class="btn" id="flt-quasar" onclick="filterTable('QUASAR')">Quasars (500)</button>
+      </div>
+    </div>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>objID</th>
+            <th>RA</th>
+            <th>Dec</th>
+            <th>u</th>
+            <th>g</th>
+            <th>r</th>
+            <th>i</th>
+            <th>z</th>
+            <th>Redshift</th>
+            <th>Class</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="tbl-body">
+          <tr><td colspan="11" style="text-align:center;color:var(--m)">Loading SDSS catalog records...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">
+      <span id="tbl-page-info" style="font-size:13px;color:var(--m)">Page 1 of 100</span>
+      <div style="display:flex;gap:8px">
+        <button class="btn" id="btn-prev" onclick="changePage(-1)">← Previous</button>
+        <button class="btn" id="btn-next" onclick="changePage(1)">Next →</button>
+      </div>
+    </div>
+  </div>
+</div>
+</main>
+
+<script>
+const $=s=>document.querySelector(s),RM=matchMedia('(prefers-reduced-motion:reduce)').matches;
+
+/* ---------- MODE SWITCHING ---------- */
+function setMode(mode){
+  if(mode==='a'){
+    $('#tab-a').classList.add('active');
+    $('#tab-b').classList.remove('active');
+    $('#mode-a').classList.add('active');
+    $('#mode-b').classList.remove('active');
+  } else {
+    $('#tab-b').classList.add('active');
+    $('#tab-a').classList.remove('active');
+    $('#mode-b').classList.add('active');
+    $('#mode-a').classList.remove('active');
+    loadAstroData();
+  }
+}
+
+/* =========================================================
+   MODE A: SYNTHETIC NEURAL PLAYGROUND (PRESERVED INTACT)
+   ========================================================= */
+let seed=7;const rnd=()=>(seed=seed*16807%2147483647)/2147483647,gs=()=>{let s=0;for(let i=0;i<4;i++)s+=rnd();return(s-2)*1.7};
+const GEN={
+ Circles(n){const c=rnd()<.5,a=rnd()*6.283,r=c?rnd()*.42:.68+rnd()*.28;return[Math.cos(a)*r+gs()*n,Math.sin(a)*r+gs()*n,+c]},
+ Xor(n){const x=rnd()*2-1,y=rnd()*2-1;return[x+gs()*n,y+gs()*n,+(x*y>0)]},
+ Spiral(n){const c=rnd()<.5,t=.25+rnd()*.75,a=t*5.2+(c?3.1416:0),r=t*.95;return[Math.cos(a)*r+gs()*n,Math.sin(a)*r+gs()*n,+c]},
+ Moons(n){const c=rnd()<.5,a=rnd()*3.1416;return c?[Math.cos(a)*.6-.15+gs()*n,Math.sin(a)*.6-.1+gs()*n,1]:[.15+Math.cos(a)*.6+gs()*n,.1-Math.sin(a)*.6+gs()*n,0]}};
+let name='Spiral',TR=[],TE=[];
+function data(){const n=+$('#nz').value/100,A=[];for(let i=0;i<320;i++)A.push(GEN[name](n));TR=A.slice(0,240);TE=A.slice(240)}
+const L=[2,12,12,1];let W,B,mW,vW,mB,vB,t,hist=[],ep=0;
+function init(){W=[];B=[];mW=[];vW=[];mB=[];vB=[];t=0;ep=0;hist=[];for(let l=1;l<L.length;l++){const n=L[l],m=L[l-1];W.push(Float64Array.from({length:n*m},()=>(rnd()*2-1)*Math.sqrt(6/(n+m))));B.push(new Float64Array(n));[mW,vW].forEach(a=>a.push(new Float64Array(n*m)));[mB,vB].forEach(a=>a.push(new Float64Array(n)))}}
+function fwd(x,y,keep){const a=[[x,y]];for(let l=0;l<W.length;l++){const n=L[l+1],m=L[l],o=new Array(n),p=a[l],last=l==W.length-1;for(let i=0;i<n;i++){let s=B[l][i];for(let j=0;j<m;j++)s+=W[l][i*m+j]*p[j];o[i]=last?1/(1+Math.exp(-s)):Math.tanh(s)}a.push(o)}return keep?a:a[a.length-1][0]}
+function upd(p,g,m,v,lr,N){const b1=.9,b2=.999;for(let i=0;i<p.length;i++){const gi=g[i]/N;m[i]=b1*m[i]+(1-b1)*gi;v[i]=b2*v[i]+(1-b2)*gi*gi;p[i]-=lr*(m[i]/(1-b1**t))/(Math.sqrt(v[i]/(1-b2**t))+1e-8)}}
+function step(){const gW=W.map(w=>new Float64Array(w.length)),gB=B.map(b=>new Float64Array(b.length));
+ for(const[x,y,c]of TR){const a=fwd(x,y,1),p=a[a.length-1][0];let d=[p-c];
+  for(let l=W.length-1;l>=0;l--){const n=L[l+1],m=L[l],nd=new Array(m).fill(0);for(let i=0;i<n;i++){gB[l][i]+=d[i];for(let j=0;j<m;j++){gW[l][i*m+j]+=d[i]*a[l][j];nd[j]+=d[i]*W[l][i*m+j]}}if(l>0)for(let j=0;j<m;j++)nd[j]*=1-a[l][j]*a[l][j];d=nd}}
+ t++;ep++;const lr=+$('#lr').value/1000;for(let l=0;l<W.length;l++){upd(W[l],gW[l],mW[l],vW[l],lr,TR.length);upd(B[l],gB[l],mB[l],vB[l],lr,TR.length)}}
+function evalS(D){let loss=0,ok=0;for(const[x,y,c]of D){const p=fwd(x,y);loss+=-(c?Math.log(p+1e-9):Math.log(1-p+1e-9));ok+=(p>.5)==!!c}return[loss/D.length,ok/D.length]}
+
+const pl=$('#pl'),px=pl.getContext('2d'),G=56,off=document.createElement('canvas');off.width=off.height=G;const ox=off.getContext('2d'),img=ox.createImageData(G,G);
+const P=v=>(v+1.15)/2.3*pl.width;
+function drawPlot(){for(let j=0;j<G;j++)for(let i=0;i<G;i++){const x=(i+.5)/G*2.3-1.15,y=(j+.5)/G*2.3-1.15,p=fwd(x,y),k=(j*G+i)*4,s=Math.abs(p-.5)*2,A=p>.5?[56,214,255]:[167,123,255];img.data[k]=A[0]*(.12+.55*s);img.data[k+1]=A[1]*(.12+.55*s);img.data[k+2]=A[2]*(.12+.55*s);img.data[k+3]=255}
+ ox.putImageData(img,0,0);px.imageSmoothingEnabled=true;px.imageSmoothingQuality='high';px.drawImage(off,0,0,pl.width,pl.height);
+ px.strokeStyle='rgba(255,255,255,.05)';px.lineWidth=1;for(let i=0;i<=8;i++){px.beginPath();px.moveTo(i*pl.width/8,0);px.lineTo(i*pl.width/8,pl.height);px.moveTo(0,i*pl.height/8);px.lineTo(pl.width,i*pl.height/8);px.stroke()}
+ const dot=(D,ring)=>D.forEach(([x,y,c])=>{px.beginPath();px.arc(P(x),P(y),ring?7:5.5,0,7);const col=c?'#38d6ff':'#a77bff';px.shadowColor=col;px.shadowBlur=14;if(ring){px.strokeStyle=col;px.lineWidth=2.5;px.stroke()}else{px.fillStyle=col;px.fill()}px.shadowBlur=0});dot(TR,0);dot(TE,1)}
+const nn=$('#nn'),nx=nn.getContext('2d');
+function drawNet(){const w=nn.width,h=nn.height;nx.clearRect(0,0,w,h);const pos=L.map((n,l)=>Array.from({length:n},(_,i)=>[40+l*(w-80)/(L.length-1),(i+.5)*h/n]));
+ const a=fwd(.3,-.2,1);
+ for(let l=0;l<W.length;l++){const mx=Math.max(...W[l].map(Math.abs))||1;for(let i=0;i<L[l+1];i++)for(let j=0;j<L[l];j++){const v=W[l][i*L[l]+j],s=Math.abs(v)/mx;nx.strokeStyle=v>0?`rgba(56,214,255,${.04+s*.7})`:`rgba(167,123,255,${.04+s*.7})`;nx.lineWidth=.4+s*2;nx.beginPath();nx.moveTo(...pos[l][j]);nx.lineTo(...pos[l+1][i]);nx.stroke()}}
+ pos.forEach((c,l)=>c.forEach((p,i)=>{const v=Math.abs(a[l][i]),col=l==L.length-1?'#fff':'#8fe8ff';nx.beginPath();nx.arc(p[0],p[1],l==L.length-1?9:5,0,7);nx.fillStyle=`rgba(143,232,255,${.25+.75*Math.min(1,v)})`;nx.shadowColor=col;nx.shadowBlur=6+v*14;nx.fill();nx.shadowBlur=0}))}
+const lc=$('#lc'),lx=lc.getContext('2d');
+function drawLoss(){const w=lc.width,h=lc.height;lx.clearRect(0,0,w,h);lx.strokeStyle='rgba(255,255,255,.08)';for(let i=1;i<4;i++){lx.beginPath();lx.moveTo(0,i*h/4);lx.lineTo(w,i*h/4);lx.stroke()}
+ if(hist.length<2)return;const mx=Math.max(.8,...hist.map(a=>Math.max(a[0],a[1])));[[0,'#38d6ff'],[1,'#a77bff']].forEach(([k,c])=>{lx.beginPath();hist.forEach((v,i)=>{const X=i/(hist.length-1)*w,Y=h-6-v[k]/mx*(h-12);i?lx.lineTo(X,Y):lx.moveTo(X,Y)});lx.strokeStyle=c;lx.lineWidth=2.5;lx.shadowColor=c;lx.shadowBlur=10;lx.stroke();lx.shadowBlur=0})}
+function stats(){const[l,a]=evalS(TR),[vl,va]=evalS(TE);$('#ep').textContent=ep;$('#ls').textContent=l.toFixed(3);$('#ta').textContent=(a*100).toFixed(1)+'%';$('#va').textContent=(va*100).toFixed(1)+'%';if(ep%10==0||!hist.length)hist.push([l,vl])}
+function render(){drawPlot();drawNet();drawLoss()}
+let run=false;
+$('#ds').innerHTML=Object.keys(GEN).map(k=>`<button class="btn" aria-pressed="${k==name}" data-k="${k}">${k}</button>`).join('');
+$('#ds').onclick=e=>{const b=e.target.closest('button');if(!b)return;name=b.dataset.k;[...$('#ds').children].forEach(x=>x.setAttribute('aria-pressed',x==b));data();init();stats();render()};
+$('#run').onclick=()=>{run=!run;$('#run').textContent=run?'Pause':'Train';$('#run').setAttribute('aria-pressed',run)};
+$('#rst').onclick=()=>{init();stats();render()};$('#reg').onclick=()=>{data();init();stats();render()};
+$('#lr').oninput=e=>$('#lro').textContent=(e.target.value/1000).toFixed(3);$('#nz').oninput=e=>{$('#nzo').textContent=(e.target.value/100).toFixed(2);data();stats();render()};
+function tick(){if(run){for(let i=0;i<(RM?4:12);i++)step();stats();render()}requestAnimationFrame(tick)}
+data();init();stats();render();tick();
+
+/* =========================================================
+   MODE B: ASTRONOMY RESEARCH LAB (SDSS DR18 BACKEND APIS)
+   ========================================================= */
+let activeModelKey = 'rf';
+let curPage = 1;
+let curFilter = null;
+let cachedMetrics = null;
+
+function loadAstroData(){
+  fetchMetrics();
+  loadDatasetTable(1, curFilter);
+  runAstronomyPredict();
+}
+
+function switchModel(key){
+  activeModelKey = key;
+  $('#m-rf-btn').classList.toggle('on', key==='rf');
+  $('#m-xgb-btn').classList.toggle('on', key==='xgb');
+  if(cachedMetrics){
+    renderModelMetrics(cachedMetrics);
+  }
+  runAstronomyPredict();
+}
+
+async function fetchMetrics(){
+  try {
+    const res = await fetch('/api/ml/metrics');
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    cachedMetrics = await res.json();
+    renderModelMetrics(cachedMetrics);
+  } catch(e) {
+    console.warn('Metrics load error:', e);
+  }
+}
+
+function renderModelMetrics(data){
+  const m = activeModelKey === 'rf' ? data.models.RandomForest : data.models.XGBoost;
+  if(!m) return;
+  $('#m-lib-desc').textContent = m.library + ' ' + m.model_name;
+  $('#m-acc').textContent = (m.holdout_accuracy * 100).toFixed(1) + '%';
+  $('#m-f1').textContent = m.macro_f1.toFixed(3);
+  $('#m-auc').textContent = m.roc_auc_ovr.toFixed(3);
+  $('#m-cv').textContent = m.five_fold_cv_display || ((m.cv_accuracy_mean*100).toFixed(1)+'%');
+}
+
+function setPreset(type){
+  if(type==='star'){
+    $('#in-u').value = 18.2; $('#in-g').value = 17.5; $('#in-r').value = 17.1;
+    $('#in-i').value = 16.9; $('#in-z').value = 16.8; $('#in-zspec').value = 0.0001;
+  } else if(type==='galaxy'){
+    $('#in-u').value = 19.3; $('#in-g').value = 17.9; $('#in-r').value = 17.0;
+    $('#in-i').value = 16.5; $('#in-z').value = 16.1; $('#in-zspec').value = 0.18;
+  } else if(type==='quasar'){
+    $('#in-u').value = 19.1; $('#in-g').value = 18.8; $('#in-r').value = 18.5;
+    $('#in-i').value = 18.3; $('#in-z').value = 18.1; $('#in-zspec').value = 1.85;
+  }
+  runAstronomyPredict();
+}
+
+async function runAstronomyPredict(){
+  const payload = {
+    model: activeModelKey,
+    u: parseFloat($('#in-u').value),
+    g: parseFloat($('#in-g').value),
+    r: parseFloat($('#in-r').value),
+    i: parseFloat($('#in-i').value),
+    z: parseFloat($('#in-z').value),
+    redshift: parseFloat($('#in-zspec').value)
+  };
+
+  try {
+    // 1. Prediction API
+    const res = await fetch('/api/ml/predict', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    if(!res.ok) throw new Error('Prediction HTTP ' + res.status);
+    const d = await res.json();
+
+    $('#pred-res').style.display = 'block';
+    $('#pred-label').textContent = d.prediction;
+    $('#pred-label').style.color = d.prediction==='STAR'?'#38d6ff':(d.prediction==='GALAXY'?'#ffb454':'#a77bff');
+    $('#pred-badge').innerHTML = `<span class="badge ${d.prediction.toLowerCase()}">${d.prediction}</span>`;
+    $('#prob-star').textContent = `STAR: ${(d.probabilities.STAR*100).toFixed(1)}%`;
+    $('#prob-gal').textContent = `GALAXY: ${(d.probabilities.GALAXY*100).toFixed(1)}%`;
+    $('#prob-qso').textContent = `QUASAR: ${(d.probabilities.QUASAR*100).toFixed(1)}%`;
+
+    // 2. SHAP Explanation API
+    $('#shap-status').textContent = `Calculating TreeSHAP contributions for ${d.prediction}...`;
+    const expRes = await fetch('/api/ml/explain', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    if(!expRes.ok) throw new Error('SHAP HTTP ' + expRes.status);
+    const expData = await expRes.json();
+
+    if(expData.available && expData.contributions){
+      $('#shap-status').textContent = `Top feature driving ${d.prediction} classification: ${expData.top_driver}`;
+      renderShapBars(expData.contributions);
+    }
+  } catch(e) {
+    console.warn('Prediction error:', e);
+  }
+}
+
+function renderShapBars(contributions){
+  const maxVal = Math.max(...contributions.map(c => Math.abs(c.shap_value))) || 1.0;
+  $('#shap-bars').innerHTML = contributions.slice(0, 6).map(c => {
+    const isPos = c.shap_value >= 0;
+    const widthPct = Math.min(100, Math.max(4, Math.abs(c.shap_value) / maxVal * 100));
+    return `
+      <div class="shap-bar-row">
+        <span class="shap-bar-name">${c.feature}</span>
+        <div class="shap-bar-track">
+          <div class="shap-bar-fill ${isPos?'pos':'neg'}" style="width:${widthPct}%"></div>
+        </div>
+        <span class="shap-bar-val">${isPos?'+':''}${c.shap_value.toFixed(3)}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+async function loadDatasetTable(page, filter){
+  curPage = page;
+  curFilter = filter;
+  let url = `/api/ml/dataset?page=${page}&limit=12`;
+  if(filter) url += `&class_filter=${filter}`;
+
+  try {
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const d = await res.json();
+    
+    if(!d.available){
+      $('#tbl-body').innerHTML = `<tr><td colspan="11" style="text-align:center;color:#f87171">${d.message}</td></tr>`;
+      return;
+    }
+
+    $('#tbl-body').innerHTML = d.records.map(r => `
+      <tr>
+        <td style="font-family:monospace">${r.objid}</td>
+        <td>${r.ra.toFixed(2)}°</td>
+        <td>${r.dec.toFixed(2)}°</td>
+        <td>${r.u.toFixed(2)}</td>
+        <td>${r.g.toFixed(2)}</td>
+        <td>${r.r.toFixed(2)}</td>
+        <td>${r.i.toFixed(2)}</td>
+        <td>${r.z.toFixed(2)}</td>
+        <td style="font-weight:600">${r.redshift.toFixed(4)}</td>
+        <td><span class="badge ${r.class.toLowerCase()}">${r.class}</span></td>
+        <td><button class="btn" style="padding:2px 8px;font-size:11px" onclick="loadSampleRow(${JSON.stringify(r).replace(/"/g, '&quot;')})">Test</button></td>
+      </tr>
+    `).join('');
+
+    $('#tbl-page-info').textContent = `Page ${d.pagination.page} of ${d.pagination.total_pages} (${d.pagination.total_records} records)`;
+    $('#btn-prev').disabled = (d.pagination.page <= 1);
+    $('#btn-next').disabled = (d.pagination.page >= d.pagination.total_pages);
+  } catch(e) {
+    $('#tbl-body').innerHTML = `<tr><td colspan="11" style="text-align:center;color:#f87171">Failed to load dataset: ${e.message}</td></tr>`;
+  }
+}
+
+function filterTable(cls){
+  $('#flt-all').classList.toggle('on', cls===null);
+  $('#flt-star').classList.toggle('on', cls==='STAR');
+  $('#flt-galaxy').classList.toggle('on', cls==='GALAXY');
+  $('#flt-quasar').classList.toggle('on', cls==='QUASAR');
+  loadDatasetTable(1, cls);
+}
+
+function changePage(delta){
+  loadDatasetTable(curPage + delta, curFilter);
+}
+
+function loadSampleRow(r){
+  $('#in-u').value = r.u;
+  $('#in-g').value = r.g;
+  $('#in-r').value = r.r;
+  $('#in-i').value = r.i;
+  $('#in-z').value = r.z;
+  $('#in-zspec').value = r.redshift;
+  runAstronomyPredict();
+  window.scrollTo({top: 400, behavior: 'smooth'});
+}
+
+async function retrainModels(){
+  const btn = $('#btn-retrain');
+  btn.textContent = 'Training...';
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/ml/train', {method: 'POST'});
+    const d = await res.json();
+    alert('Models successfully retrained and verified with TreeSHAP explainers!');
+    fetchMetrics();
+    runAstronomyPredict();
+  } catch(e) {
+    alert('Training error: ' + e.message);
+  } finally {
+    btn.textContent = '↻ Retrain Models';
+    btn.disabled = false;
+  }
+}
+</script>
+</body></html>

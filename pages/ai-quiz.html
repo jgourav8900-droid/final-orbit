@@ -1,0 +1,819 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>AI Quiz Lab | Orbit Overload</title>
+<style>
+:root{color-scheme:dark;--bg:#02030a;--p:rgba(14,22,50,.58);--b:rgba(90,140,255,.22);--c:#38d6ff;--v:#8b5cf6;--t:#e8eeff;--m:#8a98c4;--ok:#34d399;--no:#f87171;--warn:#ffcc66}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--t);font:15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif;overflow-x:hidden;min-height:100vh}
+#gl{position:fixed;inset:0;width:100%;height:100%;z-index:0;touch-action:none}
+
+/* ——— Nav ——— */
+nav{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;padding:12px 22px;
+  background:rgba(2,3,10,.7);backdrop-filter:blur(16px);border-bottom:1px solid var(--b)}
+nav b{letter-spacing:.2em;font-size:13px;white-space:nowrap}
+nav .l{display:flex;gap:4px;overflow-x:auto;flex:1}
+nav a{color:var(--m);text-decoration:none;padding:7px 12px;border-radius:99px;font-size:13px;white-space:nowrap}
+nav a.on,nav a:hover{color:#fff;background:rgba(56,214,255,.14);box-shadow:inset 0 0 0 1px var(--b)}
+
+/* ——— Layout ——— */
+main{position:relative;z-index:1;max-width:1140px;margin:auto;padding:30px 20px 100px}
+h1{font-size:clamp(32px,6vw,70px);line-height:.95;margin:0 0 12px;letter-spacing:-.02em;
+   background:linear-gradient(120deg,#fff 20%,var(--c) 60%,var(--v));-webkit-background-clip:text;background-clip:text;color:transparent}
+h2{margin:0 0 8px;font-size:22px}h3{margin:0 0 6px;font-size:17px}
+.sub{color:var(--m);margin:0 0 16px}
+
+/* ——— Utilities ——— */
+.card{background:var(--p);border:1px solid var(--b);border-radius:18px;padding:20px;
+  backdrop-filter:blur(12px);transition:border-color .2s,box-shadow .2s}
+.card:hover{border-color:rgba(56,214,255,.4);box-shadow:0 0 32px rgba(56,214,255,.12)}
+.row{display:flex;gap:16px;flex-wrap:wrap}.row>*{flex:1 1 280px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.tag{font-size:11px;letter-spacing:.12em;color:var(--c);text-transform:uppercase;margin-bottom:6px}
+.big{font-size:30px;font-weight:700}
+.live{font-size:10px;padding:1px 8px;border-radius:99px;margin-left:6px;letter-spacing:.06em;
+  color:var(--ok);border:1px solid #34d39988;vertical-align:middle}
+
+/* ——— Buttons ——— */
+.btn{display:inline-flex;align-items:center;gap:6px;border:0;cursor:pointer;color:#fff;font:inherit;
+  padding:11px 20px;border-radius:99px;background:linear-gradient(120deg,#1d6bff,var(--v));
+  margin:4px 6px 4px 0;text-decoration:none;transition:transform .15s,box-shadow .15s;white-space:nowrap}
+.btn:hover{transform:translateY(-1px);box-shadow:0 6px 24px rgba(56,214,255,.22)}
+.btn.g{background:rgba(2,3,10,.5);box-shadow:inset 0 0 0 1px var(--b)}
+.btn.g:hover{box-shadow:inset 0 0 0 1px var(--c)}
+.btn.sm{padding:7px 14px;font-size:13px;margin:3px 4px 3px 0}
+.btn.ok-btn{background:linear-gradient(120deg,#059669,#34d399)}
+.btn:disabled{opacity:.4;pointer-events:none;cursor:default}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0}
+.chip{padding:7px 14px;border-radius:99px;border:1px solid var(--b);cursor:pointer;font:inherit;font-size:13px;
+  color:var(--m);background:rgba(14,22,50,.4);transition:all .15s}
+.chip:hover,.chip.on{color:var(--c);border-color:var(--c);background:rgba(56,214,255,.1)}
+
+/* ——— Progress bar ——— */
+.prog-wrap{height:7px;border-radius:7px;background:rgba(255,255,255,.07);overflow:hidden;margin:8px 0}
+.prog-bar{height:100%;border-radius:7px;background:linear-gradient(90deg,var(--c),var(--v));
+  transition:width .4s cubic-bezier(.4,0,.2,1)}
+.prog-bar.ok{background:linear-gradient(90deg,#059669,var(--ok))}
+.prog-bar.no{background:linear-gradient(90deg,#dc2626,var(--no))}
+
+/* ——— Timer ring ——— */
+.timer-wrap{display:flex;align-items:center;justify-content:center;gap:12px;margin:14px 0}
+.timer-ring{position:relative;width:72px;height:72px}
+.timer-ring svg{transform:rotate(-90deg)}
+.timer-ring circle{fill:none;stroke:rgba(255,255,255,.08);stroke-width:5}
+.timer-ring .arc{fill:none;stroke:var(--c);stroke-width:5;stroke-linecap:round;
+  transition:stroke-dashoffset .9s linear,stroke .3s}
+.timer-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700}
+
+/* ——— Quiz stages ——— */
+#stage{min-height:200px}
+.stage-enter{animation:stageIn .5s cubic-bezier(.4,0,.2,1) both}
+@keyframes stageIn{from{opacity:0;transform:translateY(16px) scale(.98)}}
+
+/* ——— Setup card ——— */
+#setup-topic{width:100%;background:rgba(0,0,0,.45);border:1px solid var(--b);border-radius:12px;
+  padding:12px 18px;color:#fff;font:16px/1.4 inherit;resize:none;outline:none;margin:6px 0;
+  transition:border-color .2s}
+#setup-topic:focus{border-color:var(--c);box-shadow:0 0 0 2px rgba(56,214,255,.12)}
+input[type=range]{-webkit-appearance:none;width:100%;height:5px;border-radius:5px;
+  background:linear-gradient(90deg,var(--c) var(--pct,50%),rgba(255,255,255,.1) 0);cursor:pointer;margin:8px 0}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;
+  background:var(--c);border:2px solid #fff;box-shadow:0 0 8px rgba(56,214,255,.5)}
+
+/* ——— Question card ——— */
+.opt{display:flex;align-items:flex-start;gap:10px;width:100%;text-align:left;margin:6px 0;
+  padding:12px 16px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid var(--b);
+  color:#fff;font:inherit;cursor:pointer;transition:all .15s;line-height:1.5}
+.opt:hover:not(:disabled){border-color:var(--c);background:rgba(56,214,255,.08)}
+.opt.ok{border-color:var(--ok)!important;background:rgba(52,211,153,.13)!important;cursor:default}
+.opt.no{border-color:var(--no)!important;background:rgba(248,113,113,.12)!important;cursor:default}
+.opt:disabled{cursor:default}
+.opt-letter{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;
+  border-radius:50%;background:rgba(255,255,255,.08);font-size:12px;font-weight:700;flex-shrink:0}
+.opt.ok .opt-letter{background:var(--ok);color:#000}
+.opt.no .opt-letter{background:var(--no);color:#000}
+
+.expl-box{margin-top:14px;padding:12px 16px;border-radius:12px;border-left:3px solid var(--c);
+  background:rgba(56,214,255,.07);color:var(--t);display:none;animation:stageIn .3s both}
+
+/* ——— Score bar ——— */
+.score-num{font-size:64px;font-weight:800;line-height:1;
+  background:linear-gradient(120deg,var(--c),var(--v));-webkit-background-clip:text;background-clip:text;color:transparent}
+.review-item{padding:14px 16px;border-radius:12px;border:1px solid var(--b);margin:8px 0;
+  background:rgba(14,22,50,.4);transition:border-color .2s}
+.review-item.ri-ok{border-color:rgba(52,211,153,.35)}
+.review-item.ri-no{border-color:rgba(248,113,113,.35)}
+.review-q{font-weight:600;margin-bottom:8px}
+.review-ans{font-size:13px;padding:4px 10px;border-radius:6px;display:inline-block;margin:2px 4px 2px 0}
+.review-ans.ua{background:rgba(248,113,113,.18);color:var(--no)}
+.review-ans.ca{background:rgba(52,211,153,.18);color:var(--ok)}
+.review-ans.uc{background:rgba(52,211,153,.18);color:var(--ok)}
+
+/* ——— History table ——— */
+.hist-row{display:grid;grid-template-columns:1fr 100px 80px 80px 80px;gap:8px;align-items:center;
+  padding:10px 14px;border-radius:10px;border:1px solid transparent;font-size:13px}
+.hist-row:hover{background:rgba(56,214,255,.05);border-color:var(--b)}
+.hist-row.hdr{color:var(--m);font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding-bottom:6px}
+.diff-badge{padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600}
+.diff-badge.beginner{background:rgba(52,211,153,.2);color:var(--ok)}
+.diff-badge.intermediate{background:rgba(56,214,255,.2);color:var(--c)}
+.diff-badge.advanced{background:rgba(139,92,246,.2);color:var(--v)}
+.diff-badge.expert{background:rgba(248,113,113,.2);color:var(--no)}
+
+/* ——— XP pulse ——— */
+@keyframes xpPop{0%{opacity:0;transform:translateY(0) scale(.6)} 40%{opacity:1;transform:translateY(-30px) scale(1.2)} 100%{opacity:0;transform:translateY(-70px) scale(.8)}}
+.xp-pop{position:fixed;font-size:22px;font-weight:800;color:var(--ok);pointer-events:none;z-index:999;
+  animation:xpPop 1.4s ease-out forwards}
+
+/* ——— Stat cards ——— */
+.stat-mini{text-align:center}
+.stat-mini .num{font-size:28px;font-weight:700;color:var(--c)}
+.stat-mini .lbl{font-size:11px;letter-spacing:.1em;color:var(--m);text-transform:uppercase;margin-top:2px}
+
+/* ——— Alert box ——— */
+.alert{padding:12px 16px;border-radius:12px;margin:10px 0;font-size:14px;animation:stageIn .3s both}
+.alert.err{background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);color:var(--no)}
+.alert.info{background:rgba(56,214,255,.08);border:1px solid rgba(56,214,255,.2);color:var(--c)}
+.alert.warn{background:rgba(255,204,102,.08);border:1px solid rgba(255,204,102,.3);color:var(--warn)}
+
+@media(max-width:760px){.grid2,.grid3{grid-template-columns:1fr}.hist-row{grid-template-columns:1fr 70px 60px}}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01s!important;transition:none!important}}
+</style>
+<script>
+window.TX = window.TX || {
+  "earth": "/static/textures/earth.jpg",
+  "moon": "/static/textures/moon.jpg",
+  "mercury": "/static/textures/mercury.jpg",
+  "venus": "/static/textures/venus.jpg",
+  "mars": "/static/textures/mars.jpg",
+  "jupiter": "/static/textures/jupiter.jpg",
+  "saturn": "/static/textures/saturn.jpg",
+  "uranus": "/static/textures/uranus.jpg",
+  "neptune": "/static/textures/neptune.jpg"
+};
+if (location.protocol === 'file:') {
+  var pfx = location.pathname.indexOf('/pages/') !== -1 ? '../static/textures/' : 'static/textures/';
+  for (var k in window.TX) window.TX[k] = pfx + k + '.jpg';
+}
+</script>
+<script src="/static/js/textures.js"></script>
+</head>
+<body>
+
+<!-- Particle canvas (ambient starfield) -->
+<canvas id="gl"></canvas>
+
+<nav>
+  <b><a href="/" style="color:inherit;text-decoration:none">◎ ORBIT OVERLOAD</a></b>
+  <div class="l" id="nav-links">
+    <a href="/">Home</a>
+    <a href="/solar">3D Universe</a>
+    <a href="/orbit-ai">AI Astronomer</a>
+    <a href="/quiz">Quiz</a>
+    <a href="/nasa-live">NASA Live</a>
+    <a href="/ml-lab">ML Lab</a>
+    <a href="/research">Research</a>
+    <a class="on" href="/ai-quiz">AI Quiz</a>
+  </div>
+  <a href="/3d" class="btn sm" style="text-decoration:none;background:linear-gradient(135deg,rgba(56,214,255,.18),rgba(139,92,246,.22));border:1px solid rgba(56,214,255,.45)">✦ 3D Experience</a>
+</nav>
+
+<main>
+  <!-- Hero -->
+  <div style="margin-bottom:32px">
+    <div class="tag">AI-Powered · Unlimited Topics · 4 Difficulty Levels</div>
+    <h1>AI Quiz Lab<span style="color:var(--c)">.</span></h1>
+    <p class="sub" style="max-width:580px;font-size:16px">Generate fresh quizzes on any topic—instantly—using Gemini AI. Choose your difficulty, number of questions, and test your knowledge with detailed explanations.</p>
+    <div id="ai-status-banner"></div>
+  </div>
+
+  <!-- Stats row -->
+  <div class="grid3" style="margin-bottom:28px" id="stats-row">
+    <div class="card stat-mini"><div class="num" id="stat-xp">—</div><div class="lbl">XP Earned Today</div></div>
+    <div class="card stat-mini"><div class="num" id="stat-attempts">—</div><div class="lbl">Quizzes Taken</div></div>
+    <div class="card stat-mini"><div class="num" id="stat-avg">—%</div><div class="lbl">Average Score</div></div>
+  </div>
+
+  <!-- Main two-column layout -->
+  <div class="row" style="align-items:flex-start">
+
+    <!-- LEFT – Setup + Quiz -->
+    <div style="flex:2 1 500px">
+      <div id="stage"></div>
+    </div>
+
+    <!-- RIGHT – History + Tips -->
+    <div style="flex:1 1 300px;display:flex;flex-direction:column;gap:16px">
+
+      <!-- Quick tips -->
+      <div class="card">
+        <div class="tag">Scoring Guide</div>
+        <div style="font-size:13px;line-height:1.9;color:var(--m)">
+          <div>🟢 <b style="color:#fff">Beginner</b> — 20 XP / correct</div>
+          <div>🔵 <b style="color:#fff">Intermediate</b> — 35 XP / correct</div>
+          <div>🟣 <b style="color:#fff">Advanced</b> — 55 XP / correct</div>
+          <div>🔴 <b style="color:#fff">Expert</b> — 80 XP / correct</div>
+          <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--b)">
+            ⚡ Speed Bonus for fast answers<br>
+            🏆 Perfect Score doubles base XP<br>
+            🎯 90%+ accuracy adds 15% bonus
+          </div>
+        </div>
+      </div>
+
+      <!-- History -->
+      <div class="card" id="history-card">
+        <div class="tag">Recent Attempts</div>
+        <div id="history-list"><p class="sub" style="font-size:13px">Sign in to view quiz history.</p></div>
+        <button class="btn g sm" style="margin-top:8px" onclick="loadHistory()">↻ Refresh</button>
+      </div>
+
+      <!-- Popular topics -->
+      <div class="card">
+        <div class="tag">Popular Topics</div>
+        <div class="chips" id="popular-topics"></div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ============================================================
+   AMBIENT STARFIELD
+============================================================ */
+(function(){
+  const cv=document.getElementById('gl'),r=cv.getContext('2d');
+  if(!r)return;
+  let W=0,H=0,stars=[];
+  function resize(){W=cv.width=innerWidth;H=cv.height=innerHeight;stars=Array.from({length:140},()=>({x:Math.random()*W,y:Math.random()*H,s:Math.random()*1.5+.3,o:Math.random()*.8+.1,d:Math.random()*.002+.001}))}
+  resize();addEventListener('resize',resize);
+  (function loop(){requestAnimationFrame(loop);r.clearRect(0,0,W,H);stars.forEach(s=>{s.o+=s.d;if(s.o>1||s.o<.1)s.d*=-1;r.fillStyle=`rgba(190,215,255,${s.o})`;r.beginPath();r.arc(s.x,s.y,s.s,0,Math.PI*2);r.fill()})})();
+})();
+</script>
+
+<script>
+/* ============================================================
+   NAVIGATION
+============================================================ */
+const NAV=[['/',      'Home'],
+           ['/solar', 'Solar System'],
+           ['/quiz',  'Quiz Hub'],
+           ['/ai-quiz','AI Quiz Lab'],
+           ['/ml-lab','ML Lab'],
+           ['/nasa-live','NASA Live']];
+
+(function buildNav(){
+  const links=document.getElementById('nav-links');
+  NAV.forEach(([href,label])=>{
+    const a=document.createElement('a');
+    a.href=href;a.textContent=label;
+    if(location.pathname===href||location.pathname.endsWith(href))a.classList.add('on');
+    links.appendChild(a);
+  });
+})();
+
+/* ============================================================
+   STATE
+============================================================ */
+let SESSION_ID='sess-'+Math.random().toString(36).slice(2)+'-'+Date.now();
+let currentQuestions=[];  // full data with options & hashes
+let userAnswers=[];
+let currentQ=0;
+let questionStartTime=0;
+let quizStartTime=0;
+let timerInterval=null;
+let timerPerQ=60;  // seconds per question
+let totalTimeTaken=0;
+let selectedDifficulty='intermediate';
+let selectedCount=5;
+let currentTopic='';
+let reviewMode=false;
+
+const POPULAR_TOPICS=[
+  'Astronomy & Space','Black Holes','Solar System',
+  'Quantum Physics','DNA & Genetics','World History',
+  'Machine Learning','Organic Chemistry','Mathematics',
+  'Ancient Civilizations','Climate Science','Neuroscience',
+  'Programming Fundamentals','Evolution','Game Theory'
+];
+
+/* ============================================================
+   UTILS
+============================================================ */
+const $=s=>document.querySelector(s);
+const $$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
+const authHeaders=()=>{const t=localStorage.getItem('token');return t?{'Authorization':'Bearer '+t,'Content-Type':'application/json'}:{'Content-Type':'application/json'}};
+
+function showXPPop(xp,x,y){
+  const el=document.createElement('div');el.className='xp-pop';el.textContent='+'+xp+' XP';
+  el.style.left=(x||window.innerWidth/2)+'px';el.style.top=(y||window.innerHeight/2)+'px';
+  document.body.appendChild(el);setTimeout(()=>el.remove(),1500);
+}
+
+function setStage(html){
+  const s=$('#stage');s.innerHTML=`<div class="stage-enter">${html}</div>`;
+}
+
+function alert_(msg,type='err'){
+  return `<div class="alert ${type}">${msg}</div>`;
+}
+
+/* ============================================================
+   AI STATUS
+============================================================ */
+async function checkAIStatus(){
+  try{
+    const r=await fetch('/api/ai-quiz/status');
+    const d=await r.json();
+    const banner=$('#ai-status-banner');
+    if(d.gemini_configured){
+      banner.innerHTML=`<div class="alert info" style="margin:0 0 8px">✦ Gemini AI connected — Unlimited quiz generation active <span class="live">LIVE</span></div>`;
+    }else{
+      banner.innerHTML=`<div class="alert warn" style="margin:0 0 8px">⚠ Gemini API key not detected. Add GEMINI_API_KEY to .env to enable AI quiz generation.</div>`;
+    }
+  }catch(e){}
+}
+
+/* ============================================================
+   SESSION STATS
+============================================================ */
+async function loadSessionStats(){
+  try{
+    const r=await fetch('/api/ai-quiz/history?limit=50',{headers:authHeaders()});
+    if(!r.ok)return;
+    const d=await r.json();
+    if(!d.history||!d.history.length){$('#stat-xp').textContent='0';$('#stat-attempts').textContent='0';$('#stat-avg').textContent='0%';return;}
+    const totalXP=d.history.reduce((a,x)=>a+x.xp_awarded,0);
+    const totalAtt=d.history.length;
+    const avgPct=Math.round(d.history.reduce((a,x)=>a+x.percentage,0)/totalAtt);
+    $('#stat-xp').textContent=totalXP.toLocaleString();
+    $('#stat-attempts').textContent=totalAtt;
+    $('#stat-avg').textContent=avgPct+'%';
+  }catch(e){}
+}
+
+/* ============================================================
+   HISTORY
+============================================================ */
+async function loadHistory(){
+  const container=$('#history-list');
+  container.innerHTML='<p class="sub" style="font-size:13px">Loading…</p>';
+  try{
+    const r=await fetch('/api/ai-quiz/history?limit=8',{headers:authHeaders()});
+    if(!r.ok){container.innerHTML='<p class="sub" style="font-size:13px">Sign in to view history.</p>';return;}
+    const d=await r.json();
+    if(!d.history||!d.history.length){container.innerHTML='<p class="sub" style="font-size:13px">No attempts yet. Take your first quiz!</p>';return;}
+    container.innerHTML=`
+      <div class="hist-row hdr"><span>Topic</span><span>Diff.</span><span>Score</span><span>XP</span><span>Date</span></div>
+      ${d.history.map(h=>`
+        <div class="hist-row">
+          <span style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(h.topic)}</span>
+          <span><span class="diff-badge ${h.difficulty}">${h.difficulty}</span></span>
+          <span style="color:${h.percentage>=70?'var(--ok)':h.percentage>=50?'var(--warn)':'var(--no)'}">${h.score}/${h.total}</span>
+          <span style="color:var(--ok)">+${h.xp_awarded}</span>
+          <span style="color:var(--m)">${new Date(h.created_at).toLocaleDateString('en',{month:'short',day:'numeric'})}</span>
+        </div>`).join('')}
+    `;
+  }catch(e){container.innerHTML='<p class="sub" style="font-size:13px">Sign in to view history.</p>';}
+}
+
+/* ============================================================
+   POPULAR TOPICS CHIPS
+============================================================ */
+function buildPopularTopics(){
+  const c=$('#popular-topics');
+  POPULAR_TOPICS.slice(0,10).forEach(t=>{
+    const btn=document.createElement('button');
+    btn.className='chip';btn.textContent=t;
+    btn.onclick=()=>{showSetup(t)};
+    c.appendChild(btn);
+  });
+}
+
+/* ============================================================
+   STAGE 1: SETUP
+============================================================ */
+function showSetup(prefillTopic=''){
+  clearTimer();
+  currentQuestions=[];userAnswers=[];currentQ=0;reviewMode=false;
+
+  setStage(`
+    <div class="card">
+      <div class="tag">New Quiz</div>
+      <h2 style="margin:0 0 4px">What would you like to learn?</h2>
+      <p class="sub">Type any topic — history, science, pop culture, programming, or anything else.</p>
+
+      <label style="display:block;margin-bottom:4px;font-size:13px;color:var(--m)">Quiz Topic</label>
+      <textarea id="setup-topic" rows="2" placeholder="e.g. Black Holes, Machine Learning, Ancient Rome, Organic Chemistry…">${esc(prefillTopic)}</textarea>
+
+      <div style="margin-top:16px">
+        <div class="tag">Difficulty Level</div>
+        <div class="chips" id="diff-chips">
+          ${['beginner','intermediate','advanced','expert'].map(d=>`
+            <button class="chip ${d===selectedDifficulty?'on':''}" data-d="${d}" onclick="selectDiff('${d}')">
+              ${{beginner:'🟢',intermediate:'🔵',advanced:'🟣',expert:'🔴'}[d]} ${d.charAt(0).toUpperCase()+d.slice(1)}
+            </button>`).join('')}
+        </div>
+      </div>
+
+      <div style="margin-top:16px">
+        <div class="tag">Number of Questions: <span id="count-label">${selectedCount}</span></div>
+        <input type="range" min="3" max="20" value="${selectedCount}" id="q-count-slider"
+          style="--pct:${(selectedCount-3)/17*100}%"
+          oninput="updateCount(this.value)">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--m)">
+          <span>3 (Quick)</span><span>10 (Standard)</span><span>20 (Marathon)</span>
+        </div>
+      </div>
+
+      <div style="margin-top:16px">
+        <div class="tag">Timer per Question</div>
+        <div class="chips">
+          ${[['No timer',-1],['30s',30],['60s',60],['90s',90],['2min',120]].map(([l,v])=>`
+            <button class="chip ${timerPerQ===v?'on':''}" onclick="selectTimer(${v},this)">${l}</button>`).join('')}
+        </div>
+      </div>
+
+      <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn" id="start-btn" onclick="startQuiz()">⚡ Generate Quiz</button>
+        <button class="btn g" onclick="showSetup()">↺ Reset</button>
+      </div>
+      <div id="setup-err"></div>
+    </div>
+  `);
+
+  if(prefillTopic){setTimeout(()=>{const ta=$('#setup-topic');if(ta)ta.focus()},100);}
+}
+
+function selectDiff(d){
+  selectedDifficulty=d;
+  $$('[data-d]').forEach(b=>b.classList.toggle('on',b.dataset.d===d));
+}
+
+function updateCount(v){
+  selectedCount=parseInt(v);
+  const lbl=$('#count-label');if(lbl)lbl.textContent=v;
+  const sl=$('#q-count-slider');if(sl)sl.style.setProperty('--pct',((v-3)/17*100)+'%');
+}
+
+function selectTimer(v,el){
+  timerPerQ=v;
+  $$('.chips button').forEach(b=>{if(['-1','30','60','90','120'].includes(b.textContent.replace('s','').replace('No timer','-1').replace('min','').trim()))b.classList.remove('on')});
+  if(el)el.classList.add('on');
+}
+
+/* ============================================================
+   STAGE 2: GENERATING
+============================================================ */
+async function startQuiz(){
+  const ta=$('#setup-topic');
+  if(!ta)return;
+  const topic=ta.value.trim();
+  if(topic.length<2){
+    const err=$('#setup-err');
+    if(err)err.innerHTML=alert_('Please enter a topic (at least 2 characters).');
+    return;
+  }
+  currentTopic=topic;
+
+  setStage(`
+    <div class="card" style="text-align:center;min-height:260px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px">
+      <div style="font-size:48px">🤖</div>
+      <h2 style="margin:0">Generating quiz…</h2>
+      <p class="sub" style="margin:0">Gemini AI is crafting ${selectedCount} ${selectedDifficulty} questions about:<br><b style="color:var(--c)">${esc(topic)}</b></p>
+      <div class="prog-wrap" style="width:min(360px,90%);margin:0 auto">
+        <div class="prog-bar" id="gen-bar" style="width:0%"></div>
+      </div>
+      <p style="font-size:12px;color:var(--m)">This takes 5–15 seconds…</p>
+    </div>
+  `);
+
+  // Animate progress bar during loading
+  let pct=0;
+  const barAnim=setInterval(()=>{
+    pct=Math.min(pct+(Math.random()*4+1),85);
+    const bar=$('#gen-bar');if(bar)bar.style.width=pct+'%';
+  },200);
+
+  try{
+    const res=await fetch('/api/ai-quiz/generate',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({topic,difficulty:selectedDifficulty,count:selectedCount,session_id:SESSION_ID})
+    });
+    clearInterval(barAnim);
+    const bar=$('#gen-bar');if(bar)bar.style.width='100%';
+
+    if(!res.ok){
+      const err=await res.json().catch(()=>({detail:'Unknown error'}));
+      setStage(alert_(`<b>Generation failed</b><br>${esc(err.detail)}`)+`<br><button class="btn g" onclick="showSetup('${esc(topic)}')">← Back to Setup</button>`);
+      return;
+    }
+
+    const data=await res.json();
+    if(!data.questions||!data.questions.length){
+      setStage(alert_('No questions returned. Please try again.')+`<br><button class="btn g" onclick="showSetup('${esc(topic)}')">← Back</button>`);
+      return;
+    }
+
+    currentQuestions=data.questions;
+    userAnswers=new Array(currentQuestions.length).fill(-1);
+    currentQ=0;
+    quizStartTime=Date.now();
+    totalTimeTaken=0;
+    showQuestion();
+
+  }catch(err){
+    clearInterval(barAnim);
+    setStage(alert_(`Network error: ${esc(err.message)}`)+`<br><button class="btn g" onclick="showSetup('${esc(topic)}')">← Back</button>`);
+  }
+}
+
+/* ============================================================
+   STAGE 3: QUESTION
+============================================================ */
+function showQuestion(){
+  if(currentQ>=currentQuestions.length){showResults();return;}
+  const q=currentQuestions[currentQ];
+  const answered=userAnswers[currentQ];
+  const isAnswered=answered!==-1;
+  const letters=['A','B','C','D'];
+
+  const headerInfo=`
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+      <div>
+        <span class="diff-badge ${selectedDifficulty}">${selectedDifficulty}</span>
+        <span style="font-size:13px;color:var(--m);margin-left:8px">${esc(currentTopic)}</span>
+      </div>
+      <div style="font-size:13px;color:var(--m)">Question <b style="color:#fff">${currentQ+1}</b> of <b style="color:#fff">${currentQuestions.length}</b></div>
+    </div>
+    <div class="prog-wrap"><div class="prog-bar" style="width:${(currentQ/currentQuestions.length*100).toFixed(1)}%"></div></div>`;
+
+  const timerHtml=timerPerQ>0?`
+    <div class="timer-wrap">
+      <div class="timer-ring">
+        <svg width="72" height="72" viewBox="0 0 72 72">
+          <circle cx="36" cy="36" r="31"/>
+          <circle class="arc" id="timer-arc" cx="36" cy="36" r="31"
+            stroke-dasharray="${2*Math.PI*31}"
+            stroke-dashoffset="0"/>
+        </svg>
+        <div class="timer-num" id="timer-num">—</div>
+      </div>
+      <div style="font-size:13px;color:var(--m)">Time remaining<br><small>Auto-advances on timeout</small></div>
+    </div>`:'';
+
+  const opts=q.options.map((o,i)=>{
+    let cls='opt';
+    if(isAnswered){
+      cls+=(i===answered?userAnswers[currentQ]===currentQuestions[currentQ]?.correct_index_local?' ok':' no':'')+' disabled';
+    }
+    return `<button class="opt${isAnswered&&i===answered?' selected':''}" data-i="${i}" onclick="answerQ(${i})" ${isAnswered?'disabled':''}>
+      <span class="opt-letter">${letters[i]}</span>
+      <span>${esc(o)}</span>
+    </button>`;
+  }).join('');
+
+  const explHtml=isAnswered?`<div class="expl-box" style="display:block">
+    <b>📚 Explanation</b><br>${esc(q.explanation||'')}</div>`:'<div class="expl-box" id="expl-box"></div>';
+
+  const navHtml=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;flex-wrap:wrap;gap:8px">
+      <button class="btn g sm" onclick="currentQ=Math.max(0,currentQ-1);showQuestion()" ${currentQ===0?'disabled':''}>← Prev</button>
+      <div style="font-size:12px;color:var(--m)">${userAnswers.filter(a=>a!==-1).length}/${currentQuestions.length} answered</div>
+      ${currentQ<currentQuestions.length-1
+        ?`<button class="btn sm" id="next-btn" onclick="advanceQ()">Next →</button>`
+        :`<button class="btn ok-btn sm" onclick="submitQuiz()">🏁 Finish Quiz</button>`}
+    </div>`;
+
+  setStage(`
+    <div class="card">
+      ${headerInfo}
+      ${timerHtml}
+      <h3 style="font-size:17px;line-height:1.5;margin:14px 0 12px">${esc(q.question)}</h3>
+      <div id="opts-wrap">${opts}</div>
+      ${explHtml}
+      ${navHtml}
+    </div>
+  `);
+
+  questionStartTime=Date.now();
+  if(!isAnswered)startTimer();
+}
+
+/* ============================================================
+   TIMER
+============================================================ */
+function clearTimer(){clearInterval(timerInterval);timerInterval=null;}
+
+function startTimer(){
+  clearTimer();
+  if(timerPerQ<=0)return;
+  let rem=timerPerQ;
+  const circ=2*Math.PI*31;
+  updateTimerUI(rem,circ);
+  timerInterval=setInterval(()=>{
+    rem--;
+    updateTimerUI(rem,circ);
+    if(rem<=0){clearTimer();autoTimeout();}
+  },1000);
+}
+
+function updateTimerUI(rem,circ){
+  const arc=$('#timer-arc'),num=$('#timer-num');
+  if(!arc||!num)return;
+  const frac=rem/timerPerQ;
+  arc.style.strokeDashoffset=circ*(1-frac);
+  arc.style.stroke=rem<=10?'var(--no)':rem<=20?'var(--warn)':'var(--c)';
+  num.textContent=rem;
+  num.style.color=rem<=10?'var(--no)':rem<=20?'var(--warn)':'var(--c)';
+}
+
+function autoTimeout(){
+  // Mark as unanswered (index -2 = timed out), show no-answer state, advance
+  userAnswers[currentQ]=-2;
+  const opts=$$('.opt');opts.forEach(b=>{b.disabled=true;b.classList.remove('ok','no')});
+  const expl=$('#expl-box');
+  if(expl){
+    expl.style.display='block';
+    const q=currentQuestions[currentQ];
+    const letters=['A','B','C','D'];
+    expl.innerHTML=`<b>⏰ Time's up!</b> The correct answer was <b>${letters[q.correct_index_server||0]} – ${esc((q.options||[])[q.correct_index_server||0]||'')}</b><br>${esc(q.explanation||'')}`;
+  }
+  setTimeout(()=>advanceQ(),2200);
+}
+
+/* ============================================================
+   ANSWER
+============================================================ */
+function answerQ(i){
+  clearTimer();
+  const q=currentQuestions[currentQ];
+  const timeTaken=Math.round((Date.now()-questionStartTime)/1000);
+  totalTimeTaken+=timeTaken;
+  userAnswers[currentQ]=i;
+
+  // Apply visual states – we don't yet know correct_index (server-side)
+  // We visually just highlight selected; full reveal is on submit
+  const opts=$$('.opt');
+  opts.forEach(b=>{
+    b.disabled=true;
+    if(+b.dataset.i===i)b.classList.add('selected-pending');
+  });
+
+  // Show explanation placeholder
+  const expl=$('#expl-box');
+  if(expl){expl.style.display='block';expl.innerHTML='<b>✍️ Answer recorded.</b> Continue to next question or finish to see results.';}
+
+  // Scroll to next button
+  const nx=$('#next-btn')||document.querySelector('.ok-btn');
+  if(nx)nx.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function advanceQ(){
+  if(currentQ<currentQuestions.length-1){currentQ++;showQuestion();}
+  else{submitQuiz();}
+}
+
+/* ============================================================
+   STAGE 4: SUBMIT + RESULTS
+============================================================ */
+async function submitQuiz(){
+  clearTimer();
+  if(userAnswers.filter(a=>a===-1).length>0){
+    const unanswered=userAnswers.filter(a=>a===-1).length;
+    if(!confirm(`You have ${unanswered} unanswered question(s). Submit anyway?`))return;
+    // Fill unanswered with -2
+    userAnswers=userAnswers.map(a=>a===-1?-2:a);
+  }
+
+  setStage(`
+    <div class="card" style="text-align:center;min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px">
+      <div style="font-size:40px">📊</div>
+      <h2>Calculating results…</h2>
+    </div>
+  `);
+
+  const timeTaken=Math.round((Date.now()-quizStartTime)/1000);
+
+  try{
+    const res=await fetch('/api/ai-quiz/submit',{
+      method:'POST',
+      headers:authHeaders(),
+      body:JSON.stringify({
+        session_id:SESSION_ID,
+        topic:currentTopic,
+        difficulty:selectedDifficulty,
+        questions:currentQuestions.map(q=>({
+          hash:q.hash,
+          question:q.question,
+          options:q.options,
+        })),
+        answers:userAnswers.map(a=>Math.max(a,-1)),
+        time_taken_seconds:timeTaken
+      })
+    });
+
+    if(!res.ok){
+      const err=await res.json().catch(()=>({detail:'Submit failed'}));
+      setStage(alert_(`Submit error: ${esc(err.detail)}`)+`<button class="btn g" onclick="showSetup()">← New Quiz</button>`);
+      return;
+    }
+
+    const data=await res.json();
+    showResults(data);
+
+  }catch(err){
+    setStage(alert_(`Network error: ${esc(err.message)}`)+`<button class="btn g" onclick="showSetup()">← New Quiz</button>`);
+  }
+}
+
+function showResults(data){
+  if(!data){// fallback: build from local answers
+    submitQuiz();return;
+  }
+  const pct=data.percentage;
+  const progColor=pct>=70?'ok':pct>=40?'':'no';
+
+  const feedbackHtml=(data.feedback||[]).map((f,i)=>`
+    <div class="review-item ${f.is_correct?'ri-ok':'ri-no'}">
+      <div class="review-q">${i+1}. ${esc(f.question)}</div>
+      ${!f.is_correct?`<span class="review-ans ua">Your: ${esc(f.user_answer||'No answer')}</span>`:''}
+      <span class="review-ans ${f.is_correct?'uc':'ca'}">Correct: ${esc(f.correct_answer)}</span>
+      <div style="font-size:13px;color:var(--m);margin-top:8px">${esc(f.explanation)}</div>
+    </div>`).join('');
+
+  setStage(`
+    <div class="card">
+      <div class="tag">${esc(currentTopic)} · ${selectedDifficulty}</div>
+      <div style="text-align:center;padding:20px 0 10px">
+        <div class="score-num">${data.score}<span style="font-size:36px;opacity:.5">/${data.total}</span></div>
+        <div style="font-size:20px;margin:8px 0">${esc(data.grade)}</div>
+        <div class="prog-wrap" style="max-width:280px;margin:8px auto">
+          <div class="prog-bar ${progColor}" style="width:${pct}%"></div>
+        </div>
+        <div style="font-size:28px;font-weight:700;color:var(--ok);margin-top:4px">${pct}%</div>
+      </div>
+
+      <div class="grid3" style="margin:16px 0">
+        <div class="card stat-mini" style="padding:14px">
+          <div class="num" style="color:var(--ok)">+${data.xp_awarded}</div>
+          <div class="lbl">XP Earned</div>
+        </div>
+        <div class="card stat-mini" style="padding:14px">
+          <div class="num">${data.score}</div>
+          <div class="lbl">Correct</div>
+        </div>
+        <div class="card stat-mini" style="padding:14px">
+          <div class="num" style="color:var(--no)">${data.total-data.score}</div>
+          <div class="lbl">Incorrect</div>
+        </div>
+      </div>
+
+      ${data.user?`<div class="alert info" style="margin-bottom:12px">🎉 Saved to your account! Total XP: <b>${data.user.xp}</b> · Level <b>${data.user.level}</b></div>`:''}
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">
+        <button class="btn" onclick="startQuiz()">↺ Retry Same Topic</button>
+        <button class="btn g" onclick="showSetup()">+ New Quiz</button>
+        <button class="btn g sm" onclick="document.getElementById('review-section').scrollIntoView({behavior:'smooth'})">📋 Review Answers</button>
+      </div>
+
+      <div id="review-section">
+        <h3 style="margin-bottom:12px">Answer Review</h3>
+        ${feedbackHtml}
+      </div>
+    </div>
+  `);
+
+  // Fire XP popup
+  if(data.xp_awarded>0)showXPPop(data.xp_awarded,window.innerWidth/2,200);
+
+  // Reload history & stats
+  loadHistory();
+  loadSessionStats();
+}
+
+/* ============================================================
+   BOOT
+============================================================ */
+checkAIStatus();
+buildPopularTopics();
+loadHistory();
+loadSessionStats();
+
+// Read topic prefill from URL param or sessionStorage
+(function(){
+  try{
+    const params=new URLSearchParams(location.search);
+    const urlTopic=params.get('topic');
+    const ssTopic=sessionStorage.getItem('aiq-prefill');
+    const prefill=urlTopic||(ssTopic||'');
+    sessionStorage.removeItem('aiq-prefill');
+    showSetup(prefill);
+  }catch(e){showSetup();}
+})();
+</script>
+</body>
+</html>
