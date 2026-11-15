@@ -1,24 +1,110 @@
-version: '3.8'
-
 services:
-  orbit-overload:
-    build: .
-    container_name: orbit-overload-app
-    ports:
-      - "8000:8000"
+  db:
+    image: postgres:16-alpine
     environment:
-      - HOST=0.0.0.0
-      - PORT=8000
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - NASA_API_KEY=${NASA_API_KEY}
-      - JWT_SECRET=${JWT_SECRET}
-      - JWT_ID=${JWT_ID}
-      - ML_TRAINING_TOKEN=${ML_TRAINING_TOKEN:-}
-    env_file:
-      - .env
+      POSTGRES_DB: ${POSTGRES_DB:-orbit}
+      POSTGRES_USER: ${POSTGRES_USER:-orbit}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a strong POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - backend
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  orbit-overload:
+    build: .
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8000
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-orbit}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-orbit}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      JWT_EXPIRATION_SECONDS: ${JWT_EXPIRATION_SECONDS:-3600}
+      NASA_API_KEY: ${NASA_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      ML_TRAINING_TOKEN: ${ML_TRAINING_TOKEN:-}
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8000}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
+    env_file:
+      - .env
+    ports:
+      - "${APP_BIND_ADDRESS:-127.0.0.1}:${APP_PORT:-8000}:8000"
+    volumes:
+      - model-artifacts:/app/backend/models
+    networks:
+      - backend
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/health/ready"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 30s
+
+  db-backup:
+    image: postgres:16-alpine
+    profiles:
+      - backup
+    environment:
+      PGHOST: db
+      PGDATABASE: ${POSTGRES_DB:-orbit}
+      PGUSER: ${POSTGRES_USER:-orbit}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set a strong POSTGRES_PASSWORD in .env}
+    volumes:
+      - ./backups/postgres:/backups
+    networks:
+      - backend
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-ec"]
+    command: |
+      stamp="$$(date -u +%Y%m%dT%H%M%SZ)"
+      output="/backups/orbit-$$stamp.dump"
+      pg_dump --format=custom --no-owner --file="$$output.tmp"
+      mv "$$output.tmp" "$$output"
+      find /backups -type f -name 'orbit-*.dump' -mtime +14 -delete
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    profiles:
+      - monitoring
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/metrics-token:/etc/prometheus/metrics-token:ro
+      - prometheus-data:/prometheus
+    networks:
+      - backend
+    depends_on:
+      orbit-overload:
+        condition: service_healthy
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    restart: unless-stopped
+
+networks:
+  backend:
+
+volumes:
+  postgres-data:
+  model-artifacts:
+  prometheus-data:

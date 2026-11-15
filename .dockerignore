@@ -11,6 +11,8 @@ htmlcov/
 *.db
 *.sqlite
 *.sqlite3
+backups/
+monitoring/metrics-token
 venv/
 env/
 .venv/

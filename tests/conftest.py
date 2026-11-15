@@ -13,6 +13,13 @@ os.environ["JWT_SECRET"] = secrets.token_urlsafe(48)
 os.environ["NASA_API_KEY"] = "test-nasa-api-key"
 os.environ["GEMINI_API_KEY"] = "test-gemini-api-key"
 os.environ["ML_TRAINING_TOKEN"] = ""
+os.environ["METRICS_TOKEN"] = ""
+os.environ["CORS_ORIGINS"] = "http://localhost:8000,http://127.0.0.1:8000"
+os.environ["ALLOWED_HOSTS"] = "localhost,127.0.0.1,testserver"
+
+from backend.migrations import upgrade_database
+
+upgrade_database()
 
 
 @pytest.fixture(autouse=True)

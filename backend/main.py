@@ -1,19 +1,19 @@
 import os
 import json
 import asyncio
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+import secrets
+import time
+from dotenv import load_dotenv
+from fastapi import FastAPI, Request, Response, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse
-from backend.database import engine, Base
 from backend.routers import health, planets, ai, ml, nasa, auth, quiz, ai_quiz, agent
 from backend.rag_engine import rag_engine
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 
-from dotenv import load_dotenv
 load_dotenv()
-
-# Initialize database tables
-Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="Orbit Overload",
@@ -21,14 +21,76 @@ app = FastAPI(
     version="2.4.0"
 )
 
-# CORS restricted to authorized local origins
+CORS_ORIGINS = [
+    origin.strip().rstrip("/")
+    for origin in os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:8000,http://127.0.0.1:8000",
+    ).split(",")
+    if origin.strip()
+]
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,testserver").split(",")
+    if host.strip()
+]
+if "*" in CORS_ORIGINS:
+    raise RuntimeError("CORS_ORIGINS must list explicit origins when credentials are enabled.")
+METRICS_TOKEN = os.getenv("METRICS_TOKEN", "").strip()
+
+HTTP_REQUESTS = Counter(
+    "orbit_http_requests_total",
+    "HTTP requests served by Orbit Overload.",
+    ("method", "route", "status"),
+)
+HTTP_REQUEST_DURATION = Histogram(
+    "orbit_http_request_duration_seconds",
+    "HTTP request duration in seconds.",
+    ("method", "route"),
+)
+
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8000", "http://127.0.0.1:8000"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def collect_http_metrics(request: Request, call_next):
+    if request.url.path == "/metrics":
+        return await call_next(request)
+
+    started_at = time.perf_counter()
+    status_code = 500
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        return response
+    finally:
+        route = request.scope.get("route")
+        route_name = getattr(route, "path", "unmatched")
+        HTTP_REQUESTS.labels(request.method, route_name, str(status_code)).inc()
+        HTTP_REQUEST_DURATION.labels(request.method, route_name).observe(
+            time.perf_counter() - started_at
+        )
+
+
+@app.get("/metrics", include_in_schema=False)
+def prometheus_metrics(request: Request):
+    if not METRICS_TOKEN:
+        raise HTTPException(status_code=503, detail="Metrics endpoint is disabled.")
+    authorization = request.headers.get("authorization", "")
+    if not secrets.compare_digest(authorization, f"Bearer {METRICS_TOKEN}"):
+        raise HTTPException(status_code=403, detail="Forbidden.")
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
 
 # Register API routers
 app.include_router(health.router)
