@@ -12,11 +12,27 @@ from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
-JWT_SECRET = os.getenv("JWT_SECRET")
-if not JWT_SECRET or len(JWT_SECRET.strip()) < 32:
+INSECURE_JWT_SECRET_PLACEHOLDERS = {
+    "your_random_32_character_jwt_secret_here",
+}
+
+
+def is_jwt_secret_secure(secret: Optional[str]) -> bool:
+    if not secret:
+        return False
+    normalized = secret.strip().lower()
+    return (
+        len(normalized) >= 32
+        and normalized not in INSECURE_JWT_SECRET_PLACEHOLDERS
+        and not any(marker in normalized for marker in ("change_me", "changeme", "placeholder", "replace_me"))
+    )
+
+
+JWT_SECRET = os.getenv("JWT_SECRET", "").strip()
+if not is_jwt_secret_secure(JWT_SECRET):
     raise RuntimeError(
-        "FATAL: JWT_SECRET environment variable is missing or insecure (<32 characters). "
-        "A cryptographically secure random secret must be configured in .env."
+        "FATAL: JWT_SECRET is missing, a known placeholder, or shorter than 32 characters. "
+        "Configure a unique cryptographically secure random secret."
     )
 
 JWT_ALGORITHM = "HS256"

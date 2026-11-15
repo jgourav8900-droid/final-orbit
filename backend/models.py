@@ -54,6 +54,20 @@ class AIQuizAttempt(Base):
 
     user = relationship("User", back_populates="ai_quiz_attempts")
 
+
+class AIQuizIssuedAttempt(Base):
+    __tablename__ = "ai_quiz_issued_attempts"
+
+    session_id = Column(String(64), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    topic = Column(String(100), nullable=False)
+    difficulty = Column(String(20), nullable=False)
+    questions_json = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    expires_at = Column(DateTime, index=True, nullable=False)
+    consumed_at = Column(DateTime, nullable=True)
+
+
 class AIQuestionRecord(Base):
     __tablename__ = "ai_question_records"
 

@@ -1,9 +1,64 @@
-from fastapi import APIRouter, Query, HTTPException
-from pydantic import BaseModel, Field
+import logging
+import os
+import secrets
+import threading
+from datetime import datetime, timezone
 from typing import Optional, List
+
+from fastapi import APIRouter, Query, HTTPException, BackgroundTasks, Header
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict, Field
 from backend.ml_model import astronomy_ml
 
 router = APIRouter(prefix="/api/ml", tags=["Machine Learning"])
+logger = logging.getLogger(__name__)
+
+ML_TRAINING_TOKEN = os.getenv("ML_TRAINING_TOKEN", "").strip()
+_training_lock = threading.Lock()
+_training_state_lock = threading.Lock()
+_training_state = {
+    "status": "idle",
+    "started_at": None,
+    "finished_at": None,
+    "error": None,
+    "metrics": None,
+}
+
+
+def _training_state_snapshot():
+    with _training_state_lock:
+        return dict(_training_state)
+
+
+def _run_training_job():
+    started_at = datetime.now(timezone.utc).isoformat()
+    with _training_state_lock:
+        _training_state.update(status="running", started_at=started_at, finished_at=None, error=None)
+
+    try:
+        from train_astronomy_models import train_and_explain
+        train_and_explain()
+        astronomy_ml._load_bundle()
+        metrics = astronomy_ml.get_metrics_payload()
+    except Exception:
+        logger.exception("ML model training failed")
+        with _training_state_lock:
+            _training_state.update(
+                status="failed",
+                finished_at=datetime.now(timezone.utc).isoformat(),
+                error="Training failed; check application logs.",
+                metrics=None,
+            )
+    else:
+        with _training_state_lock:
+            _training_state.update(
+                status="completed",
+                finished_at=datetime.now(timezone.utc).isoformat(),
+                error=None,
+                metrics=metrics,
+            )
+    finally:
+        _training_lock.release()
 
 class PredictRequest(BaseModel):
     model: str = Field(default="rf", description="Model selector: 'rf' for Random Forest or 'xgb' for XGBoost")
@@ -24,12 +79,14 @@ class ExplainRequest(BaseModel):
     redshift: float = Field(default=0.0, ge=-0.01, le=10.0)
 
 class OrbitSimulateRequest(BaseModel):
-    semi_major_axis_au: float = 1.0
-    eccentricity: float = 0.0167
-    inclination_deg: float = 0.0
-    raan_deg: float = 0.0
-    arg_per_deg: float = 0.0
-    points: int = 100
+    model_config = ConfigDict(allow_inf_nan=False)
+
+    semi_major_axis_au: float = Field(1.0, gt=0, le=1000)
+    eccentricity: float = Field(0.0167, ge=0, lt=1)
+    inclination_deg: float = Field(0.0, ge=0, le=180)
+    raan_deg: float = Field(0.0, ge=0, le=360)
+    arg_per_deg: float = Field(0.0, ge=0, le=360)
+    points: int = Field(100, ge=3, le=2000)
 
 class ClassifyLegacyRequest(BaseModel):
     u: float
@@ -54,19 +111,34 @@ def ml_dataset(
     return astronomy_ml.get_dataset_page(page=page, limit=limit, class_filter=class_filter)
 
 @router.post("/train")
-def ml_train():
-    """Trigger verified model training pipeline for Random Forest and XGBoost."""
-    try:
-        from train_astronomy_models import train_and_explain
-        train_and_explain()
-        astronomy_ml._load_bundle()
-        return {
-            "status": "success",
-            "message": "Random Forest and XGBoost models trained and validated with SHAP explainers.",
-            "metrics": astronomy_ml.get_metrics_payload()
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Training job error: {str(e)}")
+def ml_train(
+    background_tasks: BackgroundTasks,
+    x_ml_training_token: Optional[str] = Header(None, alias="X-ML-Training-Token"),
+):
+    """Queue a serialized model training job for authorized operators."""
+    if len(ML_TRAINING_TOKEN) < 32:
+        raise HTTPException(
+            status_code=503,
+            detail="Model training is disabled until a unique ML_TRAINING_TOKEN of at least 32 characters is configured.",
+        )
+    if not x_ml_training_token or not secrets.compare_digest(x_ml_training_token, ML_TRAINING_TOKEN):
+        raise HTTPException(status_code=403, detail="A valid ML training token is required.")
+    if not _training_lock.acquire(blocking=False):
+        raise HTTPException(status_code=409, detail="A model training job is already queued or running.")
+
+    with _training_state_lock:
+        _training_state.update(status="queued", started_at=None, finished_at=None, error=None, metrics=None)
+    background_tasks.add_task(_run_training_job)
+    return JSONResponse(
+        status_code=202,
+        content={"status": "queued", "message": "Training has been queued. Check /api/ml/train/status for progress."},
+    )
+
+
+@router.get("/train/status")
+def ml_training_status():
+    """Return the state of the latest model training job."""
+    return _training_state_snapshot()
 
 @router.get("/metrics")
 def ml_metrics():
@@ -113,9 +185,9 @@ def ml_classify_legacy(req: ClassifyLegacyRequest):
 
 @router.post("/orbit-simulate")
 def ml_orbit_simulate(req: OrbitSimulateRequest):
-    """Keplerian orbit propagation service."""
+    """Keplerian heliocentric orbit propagation; distances are supplied in AU."""
     return astronomy_ml.simulate_orbit(
-        a=req.semi_major_axis_au,
+        semi_major_axis_au=req.semi_major_axis_au,
         e=req.eccentricity,
         inc_deg=req.inclination_deg,
         raan_deg=req.raan_deg,

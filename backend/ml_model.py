@@ -5,6 +5,9 @@ import joblib
 import numpy as np
 import pandas as pd
 
+AU_KM = 149_597_870.7
+SUN_MU_KM3_S2 = 1.32712440018e11
+
 class AstronomyMLService:
     def __init__(self):
         self.version = "2.4.0-sdss"
@@ -251,7 +254,8 @@ class AstronomyMLService:
             "scientific_note": "Spectroscopic redshift accounts for primary discriminant; chromatic loci resolve ambiguous boundaries."
         }
 
-    def simulate_orbit(self, a: float, e: float, inc_deg: float, raan_deg: float, arg_per_deg: float, points: int = 100):
+    def simulate_orbit(self, semi_major_axis_au: float, e: float, inc_deg: float, raan_deg: float, arg_per_deg: float, points: int = 100):
+        a_km = semi_major_axis_au * AU_KM
         inc = math.radians(inc_deg)
         raan = math.radians(raan_deg)
         w = math.radians(arg_per_deg)
@@ -259,7 +263,7 @@ class AstronomyMLService:
         trajectory = []
         for step in range(points + 1):
             theta = 2.0 * math.pi * (step / points)
-            r = a * (1 - e ** 2) / (1 + e * math.cos(theta))
+            r = a_km * (1 - e ** 2) / (1 + e * math.cos(theta))
 
             x_orb = r * math.cos(theta)
             y_orb = r * math.sin(theta)
@@ -277,11 +281,12 @@ class AstronomyMLService:
                 "position_km": {"x": round(x, 2), "y": round(y, 2), "z": round(z, 2)}
             })
 
-        period_hours = 2.0 * math.pi * math.sqrt((a ** 3) / 398600.4418) / 3600.0
+        period_hours = 2.0 * math.pi * math.sqrt((a_km ** 3) / SUN_MU_KM3_S2) / 3600.0
 
         return {
             "parameters": {
-                "semi_major_axis_km": a,
+                "semi_major_axis_au": semi_major_axis_au,
+                "semi_major_axis_km": a_km,
                 "eccentricity": e,
                 "inclination_deg": inc_deg,
                 "raan_deg": raan_deg,
@@ -289,8 +294,8 @@ class AstronomyMLService:
             },
             "orbital_period_hours": round(period_hours, 2),
             "period_years": round(period_hours / 8766.0, 4),
-            "apoapsis_km": round(a * (1 + e), 2),
-            "periapsis_km": round(a * (1 - e), 2),
+            "apoapsis_km": round(a_km * (1 + e), 2),
+            "periapsis_km": round(a_km * (1 - e), 2),
             "trajectory_points": len(trajectory),
             "trajectory": trajectory
         }

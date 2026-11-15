@@ -276,7 +276,7 @@ const NAV=[['/',      'Home'],
 /* ============================================================
    STATE
 ============================================================ */
-let SESSION_ID='sess-'+Math.random().toString(36).slice(2)+'-'+Date.now();
+let SESSION_ID='';
 let currentQuestions=[];  // full data with options & hashes
 let userAnswers=[];
 let currentQ=0;
@@ -501,7 +501,7 @@ async function startQuiz(){
     const res=await fetch('/api/ai-quiz/generate',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({topic,difficulty:selectedDifficulty,count:selectedCount,session_id:SESSION_ID})
+      body:JSON.stringify({topic,difficulty:selectedDifficulty,count:selectedCount})
     });
     clearInterval(barAnim);
     const bar=$('#gen-bar');if(bar)bar.style.width='100%';
@@ -513,11 +513,12 @@ async function startQuiz(){
     }
 
     const data=await res.json();
-    if(!data.questions||!data.questions.length){
+    if(!data.session_id||!data.questions||!data.questions.length){
       setStage(alert_('No questions returned. Please try again.')+`<br><button class="btn g" onclick="showSetup('${esc(topic)}')">← Back</button>`);
       return;
     }
 
+    SESSION_ID=data.session_id;
     currentQuestions=data.questions;
     userAnswers=new Array(currentQuestions.length).fill(-1);
     currentQ=0;

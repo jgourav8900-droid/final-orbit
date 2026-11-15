@@ -8,6 +8,7 @@ import os
 import re
 import json
 import hashlib
+import secrets
 import time
 import datetime
 import logging
@@ -19,7 +20,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models import AIQuizAttempt, AIQuestionRecord, User
+from backend.models import AIQuizAttempt, AIQuizIssuedAttempt, AIQuestionRecord, User
 from backend.routers.auth import get_current_user_optional
 from backend.cache import BoundedTTLDict
 
@@ -47,7 +48,7 @@ MIN_QUESTIONS = 3
 _QCACHE = BoundedTTLDict(maxsize=3000, default_ttl=7200)               # hash -> question dict (2h TTL)
 _LAST_GEN = BoundedTTLDict(maxsize=2000, default_ttl=3600)             # identifier -> last request time
 _LAST_SUBMIT = BoundedTTLDict(maxsize=2000, default_ttl=3600)          # identifier -> last submit time
-_SUBMITTED_SESSIONS = BoundedTTLDict(maxsize=5000, default_ttl=86400)  # session_id -> True (prevents replay)
+ISSUED_ATTEMPT_TTL = datetime.timedelta(hours=2)
 
 def get_client_ip(request: Request) -> str:
     if "x-forwarded-for" in request.headers:
@@ -62,16 +63,15 @@ class GenerateRequest(BaseModel):
     topic: str = Field(..., min_length=2, max_length=120)
     difficulty: str = Field("intermediate")
     count: int = Field(5, ge=MIN_QUESTIONS, le=MAX_QUESTIONS)
-    session_id: str = Field(..., min_length=4, max_length=64)
 
 
 class SubmitRequest(BaseModel):
-    session_id: str
-    topic: str
-    difficulty: str
-    questions: List[dict]            # [{question, options, correct_index, explanation}, ...]
-    answers: List[int]               # user answer index per question
-    time_taken_seconds: int = Field(0, ge=0)
+    session_id: str = Field(..., min_length=32, max_length=64)
+    topic: str = Field(..., min_length=2, max_length=120)
+    difficulty: str = Field(..., min_length=1, max_length=20)
+    questions: List[dict] = Field(..., min_length=1, max_length=MAX_QUESTIONS)
+    answers: List[int] = Field(..., min_length=1, max_length=MAX_QUESTIONS)
+    time_taken_seconds: int = Field(0, ge=0, le=86400)
 
 
 class HistoryParams(BaseModel):
@@ -257,48 +257,56 @@ def ai_quiz_status():
 def generate_quiz(
     req: GenerateRequest,
     request: Request,
+    db: Session = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user_optional),
 ):
     """
     Generate fresh quiz questions using Gemini AI.
-    Rate-limited: 1 generation per session/IP/user per 15 seconds.
+    Rate-limited: 1 generation per IP or authenticated user per 15 seconds.
     Gemini API key is kept server-side only.
     """
     # Validate difficulty
+    topic = req.topic.strip()
+    if len(topic) < 2:
+        raise HTTPException(status_code=422, detail="topic must contain at least 2 non-whitespace characters")
+
     diff = req.difficulty.lower()
     if diff not in DIFFICULTY_LABELS:
         raise HTTPException(status_code=422, detail=f"difficulty must be one of: {sorted(DIFFICULTY_LABELS)}")
 
-    # Rate limit by user/IP as well as session_id
+    # Rate-limit by authenticated user or client IP; session identifiers are server-issued.
     now = time.time()
     ip_addr = get_client_ip(request)
     identity_key = f"user_{current_user.id}" if current_user else f"ip_{ip_addr}"
     
-    last_session = _LAST_GEN.get(f"sess_{req.session_id}", 0)
     last_identity = _LAST_GEN.get(identity_key, 0)
-    last = max(last_session, last_identity)
 
-    if now - last < 15:
-        wait = round(15 - (now - last), 1)
+    if now - last_identity < 15:
+        wait = round(15 - (now - last_identity), 1)
         raise HTTPException(status_code=429, detail=f"Please wait {wait}s before generating a new quiz.")
     
-    _LAST_GEN[f"sess_{req.session_id}"] = now
     _LAST_GEN[identity_key] = now
 
-    prompt = _make_quiz_prompt(req.topic, diff, req.count)
+    prompt = _make_quiz_prompt(topic, diff, req.count)
     raw = _call_gemini(prompt)
     questions = _parse_quiz_json(raw)
 
     if not questions:
         raise HTTPException(status_code=502, detail="Gemini returned an empty quiz. Please try again.")
 
-    # Trim to requested count
-    questions = questions[:req.count]
-
-    # Compute hashes (for caching / dedup) but do NOT send correct_index to client
+    # Create unique server-owned question data and hashes for this issued attempt.
+    issued_questions = []
     public_questions = []
+    seen_hashes = set()
     for q in questions:
-        h = _question_hash(req.topic, q["question"])
+        h = _question_hash(topic, q["question"])
+        if h in seen_hashes:
+            continue
+        seen_hashes.add(h)
+        if len(issued_questions) == req.count:
+            break
+        stored_question = {"hash": h, **q}
+        issued_questions.append(stored_question)
         _QCACHE[h] = q  # cache full question (with answer)
         public_questions.append({
             "hash": h,
@@ -307,10 +315,32 @@ def generate_quiz(
             # correct_index deliberately omitted — evaluated server-side on submit
         })
 
+    if len(issued_questions) != req.count:
+        raise HTTPException(
+            status_code=502,
+            detail="Gemini returned fewer unique questions than requested. Please try again.",
+        )
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    db.query(AIQuizIssuedAttempt).filter(AIQuizIssuedAttempt.expires_at <= now).delete(synchronize_session=False)
+    session_id = secrets.token_urlsafe(32)
+    issued_attempt = AIQuizIssuedAttempt(
+        session_id=session_id,
+        user_id=current_user.id if current_user else None,
+        topic=topic,
+        difficulty=diff,
+        questions_json=json.dumps(issued_questions),
+        created_at=now,
+        expires_at=now + ISSUED_ATTEMPT_TTL,
+    )
+    db.add(issued_attempt)
+    db.commit()
+
     return {
-        "topic": req.topic,
+        "topic": topic,
         "difficulty": diff,
         "count": len(public_questions),
+        "session_id": session_id,
         "questions": public_questions,
         "_generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     }
@@ -325,44 +355,73 @@ def submit_ai_quiz(
 ):
     """
     Evaluate quiz answers server-side.
-    Answers are strictly validated against server cache; forged or missing hashes are rejected.
-    Attempts are marked as used to prevent XP replay attacks.
+    Answers are checked against the exact questions in a persisted server-issued attempt.
+    Attempts are atomically consumed to prevent replay and duplicate scoring.
     """
     if not req.questions:
         raise HTTPException(status_code=422, detail="No questions provided.")
     if len(req.answers) != len(req.questions):
         raise HTTPException(status_code=422, detail="Answer count must match question count.")
 
-    # Anti-replay protection: each session can be submitted exactly once
-    if req.session_id in _SUBMITTED_SESSIONS:
-        raise HTTPException(status_code=400, detail="This quiz attempt has already been submitted and scored.")
+    now = datetime.datetime.now(datetime.timezone.utc)
+    now_timestamp = time.time()
+    attempt = db.query(AIQuizIssuedAttempt).filter(
+        AIQuizIssuedAttempt.session_id == req.session_id,
+        AIQuizIssuedAttempt.expires_at > now,
+    ).first()
+    if not attempt or attempt.consumed_at is not None:
+        raise HTTPException(status_code=400, detail="This quiz attempt is missing, expired, or already submitted.")
+
+    user_id = current_user.id if current_user else None
+    if attempt.user_id != user_id:
+        raise HTTPException(status_code=403, detail="This quiz attempt belongs to a different user session.")
+
+    expected_questions = json.loads(attempt.questions_json)
+    expected_hashes = [question["hash"] for question in expected_questions]
+    submitted_hashes = [question.get("hash") for question in req.questions]
+    if (
+        len(set(expected_hashes)) != len(expected_hashes)
+        or any(not isinstance(question_hash, str) for question_hash in submitted_hashes)
+        or submitted_hashes != expected_hashes
+        or len(set(submitted_hashes)) != len(submitted_hashes)
+    ):
+        raise HTTPException(status_code=400, detail="Submitted questions do not match the issued quiz attempt.")
+    if req.topic.strip() != attempt.topic or req.difficulty.lower() != attempt.difficulty:
+        raise HTTPException(status_code=400, detail="Submitted quiz metadata does not match the issued attempt.")
+    if len(req.answers) != len(expected_questions):
+        raise HTTPException(status_code=422, detail="Answer count must match the issued question count.")
+    if any(answer < -1 or answer > 3 for answer in req.answers):
+        raise HTTPException(status_code=422, detail="Answers must be -1 (unanswered) or an option index from 0 to 3.")
+
+    diff = attempt.difficulty
 
     # Submission rate-limiting per user / IP
-    now = time.time()
     ip_addr = get_client_ip(request)
     submit_key = f"sub_user_{current_user.id}" if current_user else f"sub_ip_{ip_addr}"
     last_sub = _LAST_SUBMIT.get(submit_key, 0)
-    if now - last_sub < 5.0:
+    if now_timestamp - last_sub < 5.0:
         raise HTTPException(status_code=429, detail="Submission cooldown active. Please wait 5 seconds between quiz submissions.")
-    _LAST_SUBMIT[submit_key] = now
+    _LAST_SUBMIT[submit_key] = now_timestamp
 
-    diff = req.difficulty.lower()
+    owner_filter = AIQuizIssuedAttempt.user_id == user_id
+    claimed = db.query(AIQuizIssuedAttempt).filter(
+        AIQuizIssuedAttempt.session_id == req.session_id,
+        AIQuizIssuedAttempt.consumed_at.is_(None),
+        AIQuizIssuedAttempt.expires_at > now,
+        owner_filter,
+    ).update(
+        {AIQuizIssuedAttempt.consumed_at: now},
+        synchronize_session=False,
+    )
+    if claimed != 1:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="This quiz attempt has already been submitted.")
 
     score = 0
     feedback = []
-    for i, (q_data, user_ans) in enumerate(zip(req.questions, req.answers)):
-        q_hash = q_data.get("hash", "")
-        cached = _QCACHE.get(q_hash)
-
-        if not cached:
-            # Strictly reject forged, expired, or untracked question hashes per security review
-            raise HTTPException(
-                status_code=400,
-                detail=f"Question hash '{q_hash}' not found on server. Forged or unverified submissions are rejected."
-            )
-
-        correct_idx = cached["correct_index"]
-        explanation = cached["explanation"]
+    for i, (question, user_ans) in enumerate(zip(expected_questions, req.answers)):
+        correct_idx = question["correct_index"]
+        explanation = question["explanation"]
 
         is_correct = (user_ans == correct_idx)
         if is_correct:
@@ -370,19 +429,16 @@ def submit_ai_quiz(
 
         feedback.append({
             "question_number": i + 1,
-            "question": cached.get("question", q_data.get("question", "")),
+            "question": question["question"],
             "user_answer_index": user_ans,
             "correct_index": correct_idx,
-            "user_answer": cached.get("options", [])[user_ans] if 0 <= user_ans < len(cached.get("options", [])) else "No answer",
-            "correct_answer": cached.get("options", [])[correct_idx] if 0 <= correct_idx < len(cached.get("options", [])) else "",
+            "user_answer": question["options"][user_ans] if 0 <= user_ans < len(question["options"]) else "No answer",
+            "correct_answer": question["options"][correct_idx] if 0 <= correct_idx < len(question["options"]) else "",
             "is_correct": is_correct,
             "explanation": explanation,
         })
 
-    # Mark session as used to prevent XP replay
-    _SUBMITTED_SESSIONS[req.session_id] = True
-
-    total = len(req.questions)
+    total = len(expected_questions)
     percentage = round(score / total * 100, 1)
     xp = _calc_xp(score, total, diff, req.time_taken_seconds)
 
@@ -390,7 +446,7 @@ def submit_ai_quiz(
     record = AIQuizAttempt(
         user_id=current_user.id if current_user else None,
         session_id=req.session_id,
-        topic=req.topic,
+        topic=attempt.topic,
         difficulty=diff,
         question_count=total,
         score=score,

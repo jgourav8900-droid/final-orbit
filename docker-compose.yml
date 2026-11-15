@@ -13,6 +13,7 @@ services:
       - NASA_API_KEY=${NASA_API_KEY}
       - JWT_SECRET=${JWT_SECRET}
       - JWT_ID=${JWT_ID}
+      - ML_TRAINING_TOKEN=${ML_TRAINING_TOKEN:-}
     env_file:
       - .env
     restart: unless-stopped

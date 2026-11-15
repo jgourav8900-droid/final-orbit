@@ -1,3 +1,4 @@
+import json
 import time
 import uuid
 import pytest
@@ -116,6 +117,66 @@ def test_ml_orbit_simulate():
     assert len(data["trajectory"]) == 51
     assert "orbital_period_hours" in data
     assert "period_years" in data
+    assert data["parameters"]["semi_major_axis_au"] == pytest.approx(1.524)
+    assert data["parameters"]["semi_major_axis_km"] == pytest.approx(1.524 * 149_597_870.7, rel=1e-6)
+    assert data["period_years"] == pytest.approx(1.8808, abs=0.01)
+
+
+@pytest.mark.parametrize("overrides", [
+    {"semi_major_axis_au": 0},
+    {"eccentricity": 1},
+    {"eccentricity": -0.1},
+    {"points": 0},
+    {"points": 2001},
+])
+def test_ml_orbit_rejects_invalid_parameters(overrides):
+    payload = {
+        "semi_major_axis_au": 1.0,
+        "eccentricity": 0.0167,
+        "inclination_deg": 0.0,
+        "raan_deg": 0.0,
+        "arg_per_deg": 0.0,
+        "points": 100,
+    }
+    payload.update(overrides)
+    response = client.post("/api/ml/orbit-simulate", json=payload)
+    assert response.status_code == 422
+
+
+def test_ml_orbit_rejects_non_finite_parameters():
+    from pydantic import ValidationError
+    from backend.routers.ml import OrbitSimulateRequest
+
+    with pytest.raises(ValidationError):
+        OrbitSimulateRequest(semi_major_axis_au=float("nan"))
+
+
+def test_ml_training_requires_operator_token(monkeypatch):
+    from backend.routers import ml as ml_router
+
+    monkeypatch.setattr(ml_router, "ML_TRAINING_TOKEN", "")
+    disabled = client.post("/api/ml/train")
+    assert disabled.status_code == 503
+
+    monkeypatch.setattr(ml_router, "ML_TRAINING_TOKEN", "test-training-token-that-is-at-least-32-chars")
+    denied = client.post("/api/ml/train")
+    assert denied.status_code == 403
+    denied = client.post("/api/ml/train", headers={"X-ML-Training-Token": "wrong"})
+    assert denied.status_code == 403
+
+    def complete_fake_training():
+        with ml_router._training_state_lock:
+            ml_router._training_state.update(status="completed", finished_at="test", error=None)
+        ml_router._training_lock.release()
+
+    monkeypatch.setattr(ml_router, "_run_training_job", complete_fake_training)
+    queued = client.post(
+        "/api/ml/train",
+        headers={"X-ML-Training-Token": "test-training-token-that-is-at-least-32-chars"},
+    )
+    assert queued.status_code == 202
+    assert queued.json()["status"] == "queued"
+    assert client.get("/api/ml/train/status").json()["status"] == "completed"
 
 def test_ai_rag_search():
     res = client.get("/api/ai/rag-search?q=kepler+orbits&top_k=2")
@@ -332,66 +393,115 @@ def test_ai_quiz_leaderboard():
     assert res.status_code == 200
     assert "leaderboard" in res.json()
 
-def test_ai_quiz_submit_and_xp():
-    # Test submission and scoring with simulated questions
-    # Use a unique session_id per test run to avoid anti-replay block
-    import uuid as _uuid
-    unique_session = f"pytest-session-{_uuid.uuid4().hex[:12]}"
+def test_ai_quiz_submit_and_xp(monkeypatch):
+    from backend.routers import ai_quiz
 
-    q_data = [
+    generated_questions = [
         {
-            "hash": f"test_hash_A_{unique_session}",
             "question": "What is the Schwarzschild radius of the Sun?",
             "options": ["~3 km", "~30 km", "~300 km", "~3000 km"],
             "correct_index": 0,
             "explanation": "The Schwarzschild radius of 1 solar mass is approximately 2.95 km."
         },
         {
-            "hash": f"test_hash_B_{unique_session}",
-            "question": "Which of these is located at the center of the Milky Way?",
+            "question": "Which object is at the center of the Milky Way?",
             "options": ["Cygnus X-1", "Sagittarius A*", "M87*", "Betelgeuse"],
             "correct_index": 1,
             "explanation": "Sagittarius A* is the supermassive black hole at the Galactic Center."
-        }
+        },
+        {
+            "question": "Which planet has the shortest year?",
+            "options": ["Mercury", "Venus", "Earth", "Mars"],
+            "correct_index": 0,
+            "explanation": "Mercury completes an orbit around the Sun in about 88 days."
+        },
     ]
-    # Populate server-side cache (required by anti-replay enforcement)
-    from backend.routers.ai_quiz import _QCACHE
-    for q in q_data:
-        _QCACHE[q["hash"]] = q
+    monkeypatch.setattr(
+        ai_quiz,
+        "_call_gemini",
+        lambda prompt: json.dumps({"questions": generated_questions}),
+    )
+    ai_quiz._LAST_GEN.clear()
+    ai_quiz._LAST_SUBMIT.clear()
 
-    sub_res = client.post("/api/ai-quiz/submit", json={
+    uid = uuid.uuid4().hex[:8]
+    registration = client.post("/api/auth/register", json={
+        "username": f"quiz_{uid}",
+        "email": f"quiz_{uid}@example.com",
+        "password": "QuizPassword99!",
+    })
+    assert registration.status_code == 200
+    token = registration.json()["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    generated = client.post("/api/ai-quiz/generate", json={
+        "topic": "Black Holes",
+        "difficulty": "intermediate",
+        "count": 3,
+        "session_id": "attacker-controlled-session",
+    }, headers=headers)
+    assert generated.status_code == 200
+    generated_data = generated.json()
+    unique_session = generated_data["session_id"]
+    assert unique_session != "attacker-controlled-session"
+
+    submitted_questions = generated_data["questions"]
+    sub_res = client.post("/api/ai-quiz/submit", headers=headers, json={
         "session_id": unique_session,
         "topic": "Black Holes",
         "difficulty": "intermediate",
-        "questions": [
-            {"hash": q_data[0]["hash"], "question": q_data[0]["question"], "options": q_data[0]["options"]},
-            {"hash": q_data[1]["hash"], "question": q_data[1]["question"], "options": q_data[1]["options"]}
-        ],
-        "answers": [0, 1],
+        "questions": submitted_questions,
+        "answers": [0, 1, 0],
         "time_taken_seconds": 20
     })
     assert sub_res.status_code == 200
     d = sub_res.json()
-    assert d["score"] == 2
-    assert d["total"] == 2
+    assert d["score"] == 3
+    assert d["total"] == 3
     assert d["percentage"] == 100.0
     assert d["xp_awarded"] > 0
     assert "Perfect" in d["grade"]
-    assert len(d["feedback"]) == 2
+    assert len(d["feedback"]) == 3
     assert d["feedback"][0]["is_correct"] is True
 
     # Anti-replay: same session_id must be rejected with 400
-    replay_res = client.post("/api/ai-quiz/submit", json={
+    replay_res = client.post("/api/ai-quiz/submit", headers=headers, json={
         "session_id": unique_session,
         "topic": "Black Holes",
         "difficulty": "intermediate",
-        "questions": [
-            {"hash": q_data[0]["hash"], "question": q_data[0]["question"], "options": q_data[0]["options"]},
-        ],
-        "answers": [0],
+        "questions": submitted_questions,
+        "answers": [0, 1, 0],
         "time_taken_seconds": 5
     })
     assert replay_res.status_code == 400
+
+    # A fresh server-issued attempt still rejects duplicated/reordered question hashes.
+    ai_quiz._LAST_GEN.clear()
+    generated = client.post("/api/ai-quiz/generate", headers=headers, json={
+        "topic": "Black Holes",
+        "difficulty": "intermediate",
+        "count": 3,
+    })
+    assert generated.status_code == 200
+    questions = generated.json()["questions"]
+    ai_quiz._LAST_SUBMIT.clear()
+    duplicate_res = client.post("/api/ai-quiz/submit", headers=headers, json={
+        "session_id": generated.json()["session_id"],
+        "topic": "Black Holes",
+        "difficulty": "intermediate",
+        "questions": [questions[0], questions[1], questions[1]],
+        "answers": [0, 1, 1],
+        "time_taken_seconds": 20,
+    })
+    assert duplicate_res.status_code == 400
+
+
+def test_jwt_secret_rejects_example_placeholder():
+    from backend.routers.auth import is_jwt_secret_secure
+
+    assert not is_jwt_secret_secure("your_random_32_character_jwt_secret_here")
+    assert not is_jwt_secret_secure("replace_me_with_a_unique_secure_secret")
+    assert is_jwt_secret_secure("zV7uQ4tX6wB2nM9pL5kR8cD1fG3hJ6sA")
 
 def test_ai_quiz_validation_rules():
     # Invalid difficulty
@@ -492,7 +602,7 @@ def test_ai_quiz_forged_hash_rejected():
     _LAST_SUBMIT.clear()
 
     res = client.post("/api/ai-quiz/submit", json={
-        "session_id": f"forged-{uuid.uuid4().hex[:8]}",
+        "session_id": uuid.uuid4().hex,
         "topic": "Space",
         "difficulty": "beginner",
         "questions": [
