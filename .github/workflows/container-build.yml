@@ -1,4 +1,4 @@
-name: Container build
+name: Container integration
 
 on:
   push:
@@ -6,18 +6,28 @@ on:
     paths:
       - .dockerignore
       - Dockerfile
+      - docker-compose.yml
+      - .env.example
       - requirements.txt
       - backend/**
       - migrations/**
+      - monitoring/**
+      - pages/**
+      - static/**
       - run_server.py
       - .github/workflows/container-build.yml
   pull_request:
     paths:
       - .dockerignore
       - Dockerfile
+      - docker-compose.yml
+      - .env.example
       - requirements.txt
       - backend/**
       - migrations/**
+      - monitoring/**
+      - pages/**
+      - static/**
       - run_server.py
       - .github/workflows/container-build.yml
   workflow_dispatch:
@@ -31,12 +41,42 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: Dockerfile
-          tags: final-orbit:ci
-          load: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Start the PostgreSQL app stack
+        run: |
+          jwt_secret="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
+          postgres_password="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+          metrics_token="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+          printf '%s\n' \
+            "JWT_SECRET=$jwt_secret" \
+            "POSTGRES_PASSWORD=$postgres_password" \
+            "METRICS_TOKEN=$metrics_token" \
+            'CORS_ORIGINS=http://localhost:8000' \
+            'ALLOWED_HOSTS=localhost,127.0.0.1' \
+            > .env
+          docker compose up --build --detach
+      - name: Verify database readiness and protected metrics
+        run: |
+          ready=0
+          for attempt in $(seq 1 36); do
+            if curl --fail --silent http://127.0.0.1:8000/api/health/ready > /tmp/health.json; then
+              ready=1
+              break
+            fi
+            sleep 5
+          done
+          if [ "$ready" -ne 1 ]; then
+            docker compose logs --no-color
+            exit 1
+          fi
+          grep -q 'postgresql_ready' /tmp/health.json
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8000/metrics)" = "403"
+          metrics_token="$(grep '^METRICS_TOKEN=' .env | cut -d= -f2-)"
+          curl --fail --silent \
+            --header "Authorization: Bearer $metrics_token" \
+            http://127.0.0.1:8000/metrics | grep -q 'orbit_http_requests_total'
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+      - name: Stop the test stack
+        if: always()
+        run: docker compose down --volumes --remove-orphans
