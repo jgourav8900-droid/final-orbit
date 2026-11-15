@@ -1,0 +1,47 @@
+@media (max-width: 760px) {
+  nav {
+    position: sticky !important;
+    top: 0;
+    left: auto;
+    right: auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 8px;
+    padding: 8px max(12px, env(safe-area-inset-left)) !important;
+    padding-top: max(8px, env(safe-area-inset-top)) !important;
+  }
+
+  nav > b {
+    flex: 1 0 auto;
+  }
+
+  nav > a.btn:last-child {
+    order: 1;
+    flex: 0 0 auto;
+    margin: 0 0 0 auto;
+  }
+
+  nav > .l {
+    order: 2;
+    flex: 0 0 100%;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  nav .l {
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+  }
+
+  nav .l::-webkit-scrollbar {
+    display: none;
+  }
+
+  nav .l > a {
+    flex: 0 0 auto;
+    padding: 5px 6px;
+    font-size: 12px;
+  }
+}
